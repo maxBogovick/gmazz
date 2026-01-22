@@ -104,25 +104,17 @@ function formatDate(dateStr: string): string {
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#0a0a0a] text-white font-serif overflow-x-hidden">
-
-    <!-- Subtle Grain -->
-    <div class="fixed inset-0 pointer-events-none z-50 opacity-[0.015] mix-blend-overlay bg-[url('/noise.png')]"></div>
-
-    <!-- Ambient Light -->
-    <div class="fixed inset-0 pointer-events-none z-0">
-      <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-amber-600/5 blur-[100px]"></div>
-    </div>
+  <div class="min-h-screen bg-[#FAF7F2] text-[#3D3428] font-serif overflow-x-hidden">
 
     <!-- Header -->
     <header
         data-tauri-drag-region
-        class="fixed top-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-xl border-b border-amber-900/20"
+        class="fixed top-0 left-0 right-0 z-50 bg-[#FAF7F2]/95 backdrop-blur-md border-b border-[#D4CAB5]"
     >
       <div class="max-w-5xl mx-auto px-6 lg:px-12 h-20 flex items-center justify-between pointer-events-none">
         <button
             @click="goBack"
-            class="flex items-center gap-3 text-sm text-gray-400 hover:text-amber-400 transition-colors duration-300 pointer-events-auto group"
+            class="flex items-center gap-3 text-sm text-[#8B7E6A] hover:text-[#A67C00] transition-colors duration-300 pointer-events-auto group"
         >
           <span class="text-xl group-hover:-translate-x-1 transition-transform">←</span>
           <span class="font-light">Вернуться в Архив</span>
@@ -132,14 +124,14 @@ function formatDate(dateStr: string): string {
           <button
               v-if="note"
               @click="handleDelete"
-              class="text-[10px] uppercase tracking-[0.25em] text-gray-700 hover:text-red-600 transition-colors font-sans"
+              class="text-[10px] uppercase tracking-[0.25em] text-[#8B7E6A] hover:text-red-600 transition-colors font-sans"
           >
             Удалить
           </button>
 
-          <div class="hidden md:flex items-center gap-2 text-xs text-gray-600 font-sans">
-            <kbd class="px-2 py-1 bg-zinc-900 border border-zinc-800 rounded text-[10px] text-gray-500 tracking-wider">ESC</kbd>
-            <span class="text-gray-700">для выхода</span>
+          <div class="hidden md:flex items-center gap-2 text-xs text-[#8B7E6A] font-sans">
+            <kbd class="px-2 py-1 bg-[#F5F1E8] border border-[#D4CAB5] rounded text-[10px] text-[#8B7E6A] tracking-wider">ESC</kbd>
+            <span class="text-[#A89F8B]">для выхода</span>
           </div>
         </div>
       </div>
@@ -160,24 +152,24 @@ function formatDate(dateStr: string): string {
           <div class="space-y-8">
             <!-- Catalog Info -->
             <div class="flex items-center gap-4">
-              <div class="h-px flex-1 bg-gradient-to-r from-transparent to-amber-800/30"></div>
-              <div class="flex items-center gap-4 text-[10px] uppercase tracking-[0.3em] text-amber-700 font-sans">
+              <div class="h-px flex-1 bg-gradient-to-r from-transparent to-[#D4CAB5]"></div>
+              <div class="flex items-center gap-4 text-[10px] uppercase tracking-[0.3em] text-[#A67C00] font-sans">
                 <span>№ {{ note.id.substring(0, 8) }}</span>
-                <span class="text-amber-900">•</span>
+                <span class="text-[#D4CAB5]">•</span>
                 <span>{{ typeInfo[note.note_type]?.label }}</span>
               </div>
-              <div class="h-px flex-1 bg-gradient-to-l from-transparent to-amber-800/30"></div>
+              <div class="h-px flex-1 bg-gradient-to-l from-transparent to-[#D4CAB5]"></div>
             </div>
 
             <!-- Title Block -->
             <div class="text-center space-y-4">
-              <div class="text-5xl text-amber-500/60">
+              <div class="text-5xl text-[#A67C00]/60">
                 {{ typeInfo[note.note_type]?.icon }}
               </div>
-              <h1 class="text-4xl lg:text-5xl font-light tracking-tight">
+              <h1 class="text-4xl lg:text-5xl font-light tracking-tight text-[#3D3428]">
                 {{ typeInfo[note.note_type]?.labelRu }}
               </h1>
-              <p class="text-lg text-gray-500 font-light">
+              <p class="text-lg text-[#8B7E6A] font-light">
                 {{ formatDate(note.created_at) }}
               </p>
             </div>
@@ -185,28 +177,28 @@ function formatDate(dateStr: string): string {
 
           <!-- Exhibition Frame -->
           <article class="relative">
-            <div class="relative bg-gradient-to-br from-zinc-900 to-black border border-amber-900/30 p-1.5 shadow-2xl">
+            <div class="relative bg-white border border-[#E0D9C8] rounded-lg p-1.5 shadow-lg">
 
               <!-- Inner Mat -->
-              <div class="bg-black relative overflow-hidden">
+              <div class="bg-[#FFFEFA] rounded relative overflow-hidden">
 
                 <!-- Corner Details -->
-                <div class="absolute top-4 left-4 w-6 h-6 border-t-2 border-l-2 border-amber-800/30"></div>
-                <div class="absolute top-4 right-4 w-6 h-6 border-t-2 border-r-2 border-amber-800/30"></div>
-                <div class="absolute bottom-4 left-4 w-6 h-6 border-b-2 border-l-2 border-amber-800/30"></div>
-                <div class="absolute bottom-4 right-4 w-6 h-6 border-b-2 border-r-2 border-amber-800/30"></div>
+                <div class="absolute top-4 left-4 w-6 h-6 border-t-2 border-l-2 border-[#D4CAB5]"></div>
+                <div class="absolute top-4 right-4 w-6 h-6 border-t-2 border-r-2 border-[#D4CAB5]"></div>
+                <div class="absolute bottom-4 left-4 w-6 h-6 border-b-2 border-l-2 border-[#D4CAB5]"></div>
+                <div class="absolute bottom-4 right-4 w-6 h-6 border-b-2 border-r-2 border-[#D4CAB5]"></div>
 
                 <div class="p-8 lg:p-12 relative z-10">
 
                   <!-- Thought (Personal Notes) -->
                   <template v-if="note.note_type === 'thought'">
                     <div class="max-w-2xl mx-auto space-y-8">
-                      <div class="w-16 h-1 bg-amber-800/40 mx-auto"></div>
-                      <div class="text-xl lg:text-2xl leading-relaxed text-gray-300 whitespace-pre-line text-center font-light">
+                      <div class="w-16 h-1 bg-[#A67C00]/40 mx-auto"></div>
+                      <div class="text-xl lg:text-2xl leading-relaxed text-[#3D3428] whitespace-pre-line text-center font-light">
                         {{ note.content }}
                       </div>
                       <div class="flex justify-center pt-6">
-                        <div class="text-3xl text-amber-700/40">✍</div>
+                        <div class="text-3xl text-[#A67C00]/40">✍</div>
                       </div>
                     </div>
                   </template>
@@ -215,13 +207,13 @@ function formatDate(dateStr: string): string {
                   <template v-else-if="note.note_type === 'harmony'">
                     <div class="space-y-6">
                       <div class="text-center mb-8">
-                        <h3 class="text-sm uppercase tracking-[0.3em] text-amber-700 font-sans mb-2">
+                        <h3 class="text-sm uppercase tracking-[0.3em] text-[#A67C00] font-sans mb-2">
                           Гармонический Анализ
                         </h3>
                       </div>
 
-                      <div class="bg-zinc-950 border border-amber-900/20 p-8 overflow-x-auto custom-scrollbar">
-                        <pre class="font-mono text-base lg:text-lg text-amber-400 whitespace-pre-wrap leading-loose">{{ note.content }}</pre>
+                      <div class="bg-[#F5F1E8] border border-[#D4CAB5] rounded-lg p-8 overflow-x-auto custom-scrollbar">
+                        <pre class="font-mono text-base lg:text-lg text-[#8B5A2B] whitespace-pre-wrap leading-loose">{{ note.content }}</pre>
                       </div>
                     </div>
                   </template>
@@ -231,12 +223,12 @@ function formatDate(dateStr: string): string {
                     <div class="space-y-10">
 
                       <!-- Playback Console -->
-                      <div class="bg-zinc-950 border border-amber-900/20 p-8 space-y-6">
+                      <div class="bg-[#F5F1E8] border border-[#D4CAB5] rounded-lg p-8 space-y-6">
                         <div class="flex items-center justify-center gap-8">
                           <!-- Play Button -->
                           <button
                               @click="togglePlay"
-                              class="w-20 h-20 flex items-center justify-center rounded-full bg-gradient-to-br from-amber-600 to-amber-700 text-black hover:from-amber-500 hover:to-amber-600 transition-all duration-300 shadow-lg shadow-amber-900/30 relative group"
+                              class="w-20 h-20 flex items-center justify-center rounded-full bg-gradient-to-br from-[#A67C00] to-[#B8860B] text-white hover:from-[#B8860B] hover:to-[#C9A227] transition-all duration-300 shadow-lg shadow-[#A67C00]/30 relative group"
                           >
                             <svg v-if="!isPlaying" class="w-8 h-8 ml-1" fill="currentColor" viewBox="0 0 24 24">
                               <path d="M8 5v14l11-7z" />
@@ -246,26 +238,26 @@ function formatDate(dateStr: string): string {
                             </svg>
 
                             <!-- Pulse Effect When Playing -->
-                            <div v-if="isPlaying" class="absolute inset-0 rounded-full bg-amber-500 animate-ping opacity-20"></div>
+                            <div v-if="isPlaying" class="absolute inset-0 rounded-full bg-[#C9A227] animate-ping opacity-20"></div>
                           </button>
                         </div>
 
                         <!-- Waveform Display -->
-                        <div class="h-24 w-full bg-black border border-amber-900/30 rounded relative overflow-hidden">
-                          <div class="absolute left-1/2 top-0 bottom-0 w-0.5 bg-amber-500 z-20"></div>
-                          <Waveform class="w-full h-full opacity-50" />
+                        <div class="h-24 w-full bg-white border border-[#D4CAB5] rounded-lg relative overflow-hidden">
+                          <div class="absolute left-1/2 top-0 bottom-0 w-0.5 bg-[#A67C00] z-20"></div>
+                          <Waveform class="w-full h-full opacity-60" />
                         </div>
 
                         <div class="text-center">
-                          <div class="text-xs uppercase tracking-widest text-amber-800 font-sans">
+                          <div class="text-xs uppercase tracking-widest text-[#8B7E6A] font-sans">
                             {{ isPlaying ? 'Воспроизведение...' : 'Готов к воспроизведению' }}
                           </div>
                         </div>
                       </div>
 
                       <!-- Annotation -->
-                      <div v-if="note.metadata.comment || note.content" class="border-l-2 border-amber-800/30 pl-8">
-                        <p class="text-lg lg:text-xl text-gray-400 italic leading-relaxed">
+                      <div v-if="note.metadata.comment || note.content" class="border-l-2 border-[#A67C00]/40 pl-8">
+                        <p class="text-lg lg:text-xl text-[#5C5245] italic leading-relaxed">
                           "{{ note.metadata.comment || note.content }}"
                         </p>
                       </div>
@@ -277,7 +269,7 @@ function formatDate(dateStr: string): string {
                     <div class="max-w-2xl mx-auto space-y-10">
 
                       <div class="text-center">
-                        <h3 class="text-sm uppercase tracking-[0.3em] text-amber-700 font-sans mb-8">
+                        <h3 class="text-sm uppercase tracking-[0.3em] text-[#A67C00] font-sans mb-8">
                           Ритмическая Структура
                         </h3>
                       </div>
@@ -285,30 +277,30 @@ function formatDate(dateStr: string): string {
                       <!-- Time Signature Display -->
                       <div class="flex justify-center">
                         <div class="relative">
-                          <div class="w-32 h-32 bg-zinc-950 border-2 border-amber-800/40 flex flex-col items-center justify-center">
-                            <span class="text-5xl font-light text-amber-400 leading-none">
+                          <div class="w-32 h-32 bg-white border-2 border-[#D4CAB5] rounded-lg flex flex-col items-center justify-center shadow-sm">
+                            <span class="text-5xl font-light text-[#A67C00] leading-none">
                               {{ note.metadata.time_signature?.split('/')[0] || '4' }}
                             </span>
-                            <div class="w-12 h-px bg-amber-800/60 my-2"></div>
-                            <span class="text-5xl font-light text-gray-600 leading-none">
+                            <div class="w-12 h-px bg-[#D4CAB5] my-2"></div>
+                            <span class="text-5xl font-light text-[#5C5245] leading-none">
                               {{ note.metadata.time_signature?.split('/')[1] || '4' }}
                             </span>
                           </div>
 
                           <!-- Corner Accents -->
-                          <div class="absolute -top-1 -left-1 w-4 h-4 border-t-2 border-l-2 border-amber-600"></div>
-                          <div class="absolute -top-1 -right-1 w-4 h-4 border-t-2 border-r-2 border-amber-600"></div>
-                          <div class="absolute -bottom-1 -left-1 w-4 h-4 border-b-2 border-l-2 border-amber-600"></div>
-                          <div class="absolute -bottom-1 -right-1 w-4 h-4 border-b-2 border-r-2 border-amber-600"></div>
+                          <div class="absolute -top-1 -left-1 w-4 h-4 border-t-2 border-l-2 border-[#A67C00]"></div>
+                          <div class="absolute -top-1 -right-1 w-4 h-4 border-t-2 border-r-2 border-[#A67C00]"></div>
+                          <div class="absolute -bottom-1 -left-1 w-4 h-4 border-b-2 border-l-2 border-[#A67C00]"></div>
+                          <div class="absolute -bottom-1 -right-1 w-4 h-4 border-b-2 border-r-2 border-[#A67C00]"></div>
                         </div>
                       </div>
 
                       <!-- Pattern -->
-                      <div class="bg-zinc-950 border border-amber-900/20 p-8 text-center">
-                        <div class="text-xs uppercase tracking-widest text-amber-800 mb-4 font-sans">
+                      <div class="bg-[#F5F1E8] border border-[#D4CAB5] rounded-lg p-8 text-center">
+                        <div class="text-xs uppercase tracking-widest text-[#8B7E6A] mb-4 font-sans">
                           Groove Pattern
                         </div>
-                        <div class="font-mono text-xl lg:text-2xl text-white tracking-wider">
+                        <div class="font-mono text-xl lg:text-2xl text-[#3D3428] tracking-wider">
                           {{ note.content }}
                         </div>
                       </div>
@@ -320,32 +312,32 @@ function formatDate(dateStr: string): string {
                     <div class="space-y-6">
 
                       <div class="text-center mb-6">
-                        <h3 class="text-sm uppercase tracking-[0.3em] text-amber-700 font-sans">
+                        <h3 class="text-sm uppercase tracking-[0.3em] text-[#A67C00] font-sans">
                           Оригинальная Партитура
                         </h3>
                       </div>
 
                       <!-- Score Viewer -->
-                      <div class="relative bg-gray-100 p-2 shadow-inner">
-                        <div class="bg-white overflow-auto max-h-[70vh] flex items-center justify-center p-6"
+                      <div class="relative bg-[#F5F1E8] p-3 rounded-lg border border-[#D4CAB5]">
+                        <div class="bg-white overflow-auto max-h-[70vh] flex items-center justify-center p-6 rounded"
                              :class="imageScale > 1 ? 'cursor-zoom-out' : 'cursor-zoom-in'">
                           <img
                               v-if="imagePath"
                               :src="imagePath"
                               alt="Musical Score"
                               :style="{ transform: `scale(${imageScale})` }"
-                              class="max-w-full shadow-2xl transition-transform duration-300 ease-out origin-center"
+                              class="max-w-full shadow-lg transition-transform duration-300 ease-out origin-center"
                           />
-                          <div v-else class="h-64 flex items-center justify-center text-gray-400 font-sans">
+                          <div v-else class="h-64 flex items-center justify-center text-[#8B7E6A] font-sans">
                             <div class="animate-pulse">Загрузка партитуры...</div>
                           </div>
                         </div>
                       </div>
 
                       <!-- Score Info -->
-                      <div class="flex justify-between items-center text-[10px] uppercase tracking-wider text-gray-600 font-sans px-2">
-                        <span>{{ note.content }}</span>
-                        <span class="text-amber-800">Ctrl + Scroll для масштабирования</span>
+                      <div class="flex justify-between items-center text-[10px] uppercase tracking-wider text-[#8B7E6A] font-sans px-2">
+                        <span class="text-[#5C5245]">{{ note.content }}</span>
+                        <span class="text-[#A67C00]">Ctrl + Scroll для масштабирования</span>
                       </div>
                     </div>
                   </template>
@@ -353,9 +345,9 @@ function formatDate(dateStr: string): string {
 
                 <!-- Signature Stamp -->
                 <div class="px-8 lg:px-12 pb-8">
-                  <div class="pt-8 border-t border-amber-900/10 flex justify-between items-center text-[10px] uppercase tracking-[0.25em] text-gray-700 font-sans">
+                  <div class="pt-8 border-t border-[#E0D9C8] flex justify-between items-center text-[10px] uppercase tracking-[0.25em] text-[#8B7E6A] font-sans">
                     <span>Архив Gmazz</span>
-                    <span class="text-amber-900/60">{{ new Date(note.created_at).getFullYear() }}</span>
+                    <span class="text-[#A67C00]">{{ new Date(note.created_at).getFullYear() }}</span>
                   </div>
                 </div>
               </div>
@@ -366,8 +358,8 @@ function formatDate(dateStr: string): string {
 
         <!-- Loading State -->
         <div v-else class="min-h-[60vh] flex flex-col items-center justify-center space-y-6">
-          <div class="text-5xl text-amber-600/40 animate-pulse">𝄞</div>
-          <p class="text-sm uppercase tracking-[0.3em] text-amber-800/60 font-sans">
+          <div class="text-5xl text-[#A67C00]/50 animate-pulse">𝄞</div>
+          <p class="text-sm uppercase tracking-[0.3em] text-[#8B7E6A] font-sans">
             Извлечение из архива...
           </p>
         </div>
@@ -383,15 +375,15 @@ function formatDate(dateStr: string): string {
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: #0a0a0a;
+  background: #F5F1E8;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #3f3f3f;
+  background: #D4CAB5;
   border-radius: 4px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #d4af37;
+  background: #A67C00;
 }
 </style>

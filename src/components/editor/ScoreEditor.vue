@@ -118,7 +118,7 @@ function handleKeydown(event: KeyboardEvent) {
   <div class="w-full space-y-8">
     <!-- Drop Zone -->
     <div>
-      <label class="block text-[10px] uppercase tracking-[0.2em] text-amber-700 mb-4 font-sans">
+      <label class="block text-[10px] uppercase tracking-[0.2em] text-[#A67C00] mb-4 font-sans">
         Файл Партитуры
       </label>
 
@@ -134,15 +134,15 @@ function handleKeydown(event: KeyboardEvent) {
       <div
         @click="triggerFileDialog"
         :class="[
-          'relative bg-zinc-950 border-2 border-dashed rounded p-8 transition-all duration-300 cursor-pointer',
+          'relative bg-[#F5F1E8] border-2 border-dashed rounded-lg p-8 transition-all duration-300 cursor-pointer',
           isDragging
-            ? 'border-amber-500 bg-amber-900/10'
-            : 'border-amber-900/30 hover:border-amber-800/50'
+            ? 'border-[#A67C00] bg-[#A67C00]/5'
+            : 'border-[#D4CAB5] hover:border-[#A67C00]/50'
         ]"
       >
         <!-- Has Image Preview -->
         <div v-if="previewUrl" class="space-y-4" @click.stop>
-          <div class="relative bg-white p-2 rounded shadow-lg">
+          <div class="relative bg-white p-3 rounded-lg shadow-md border border-[#E0D9C8]">
             <img
               :src="previewUrl"
               :alt="fileName"
@@ -150,10 +150,10 @@ function handleKeydown(event: KeyboardEvent) {
             />
           </div>
           <div class="flex items-center justify-center gap-4">
-            <span class="text-sm text-amber-500 font-mono">{{ fileName }}</span>
+            <span class="text-sm text-[#A67C00] font-mono">{{ fileName }}</span>
             <button
               @click="clearFile"
-              class="text-xs text-gray-600 hover:text-amber-500 transition-colors font-sans uppercase tracking-wider"
+              class="text-xs text-[#8B7E6A] hover:text-[#A67C00] transition-colors font-sans uppercase tracking-wider"
             >
               Удалить
             </button>
@@ -162,18 +162,18 @@ function handleKeydown(event: KeyboardEvent) {
 
         <!-- Has PDF (no preview) -->
         <div v-else-if="fileName" class="flex flex-col items-center gap-4 py-8" @click.stop>
-          <div class="w-16 h-16 rounded bg-red-500/10 flex items-center justify-center text-red-400">
+          <div class="w-16 h-16 rounded-lg bg-[#A67C00]/10 flex items-center justify-center text-[#A67C00]">
             <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
               <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z" />
             </svg>
           </div>
           <div class="text-center">
-            <p class="text-base text-gray-200">{{ fileName }}</p>
-            <p class="text-xs text-gray-600 font-sans uppercase tracking-wider mt-1">PDF документ</p>
+            <p class="text-base text-[#3D3428]">{{ fileName }}</p>
+            <p class="text-xs text-[#8B7E6A] font-sans uppercase tracking-wider mt-1">PDF документ</p>
           </div>
           <button
             @click="clearFile"
-            class="text-xs text-gray-600 hover:text-amber-500 transition-colors font-sans uppercase tracking-wider"
+            class="text-xs text-[#8B7E6A] hover:text-[#A67C00] transition-colors font-sans uppercase tracking-wider"
           >
             Удалить
           </button>
@@ -181,16 +181,16 @@ function handleKeydown(event: KeyboardEvent) {
 
         <!-- Empty State -->
         <div v-else class="flex flex-col items-center justify-center py-10 text-center">
-          <div class="text-5xl text-amber-800/40 mb-4">𝄞</div>
-          <p class="text-gray-300 text-lg mb-2">Нажмите или перетащите файл</p>
-          <p class="text-xs text-gray-600 font-sans uppercase tracking-wider">PNG, JPG, или PDF</p>
+          <div class="text-5xl text-[#A67C00]/40 mb-4">𝄞</div>
+          <p class="text-[#3D3428] text-lg mb-2">Нажмите или перетащите файл</p>
+          <p class="text-xs text-[#8B7E6A] font-sans uppercase tracking-wider">PNG, JPG, или PDF</p>
         </div>
       </div>
     </div>
 
     <!-- Notes -->
     <div>
-      <label class="block text-[10px] uppercase tracking-[0.2em] text-amber-700 mb-4 font-sans">
+      <label class="block text-[10px] uppercase tracking-[0.2em] text-[#A67C00] mb-4 font-sans">
         Аннотация (опционально)
       </label>
       <textarea
@@ -199,7 +199,7 @@ function handleKeydown(event: KeyboardEvent) {
         @input="handleInput"
         @keydown="handleKeydown"
         placeholder="Добавьте описание партитуры..."
-        class="w-full min-h-[100px] bg-zinc-950 border border-amber-900/20 rounded p-6 text-base leading-relaxed text-gray-300 placeholder:text-gray-700 resize-none outline-none focus:border-amber-800/40 transition-colors"
+        class="w-full min-h-[100px] bg-white border border-[#D4CAB5] rounded-lg p-6 text-base leading-relaxed text-[#3D3428] placeholder:text-[#A89F8B] resize-none outline-none focus:border-[#A67C00]/50 transition-colors"
       ></textarea>
     </div>
   </div>

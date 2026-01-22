@@ -193,10 +193,10 @@ function handleKeydown(event: KeyboardEvent) {
     <!-- Recording / File Area -->
     <div>
       <div class="flex items-center justify-between mb-4">
-        <label class="text-[10px] uppercase tracking-[0.2em] text-amber-700 font-sans">
+        <label class="text-[10px] uppercase tracking-[0.2em] text-[#A67C00] font-sans">
           Аудио Источник
         </label>
-        <span v-if="isRecording" class="text-xs font-mono text-red-500 animate-pulse flex items-center gap-2">
+        <span v-if="isRecording" class="text-xs font-mono text-red-600 animate-pulse flex items-center gap-2">
           <span class="w-2 h-2 bg-red-500 rounded-full"></span>
           Запись {{ formatTime(recordingTime) }}
         </span>
@@ -214,22 +214,22 @@ function handleKeydown(event: KeyboardEvent) {
       <div
         @click="triggerFileDialog"
         :class="[
-          'relative bg-zinc-950 border-2 border-dashed rounded p-8 transition-all duration-300 cursor-pointer',
+          'relative bg-[#F5F1E8] border-2 border-dashed rounded-lg p-8 transition-all duration-300 cursor-pointer',
           isDragging
-            ? 'border-amber-500 bg-amber-900/10'
+            ? 'border-[#A67C00] bg-[#A67C00]/5'
             : isRecording
-              ? 'border-red-500/50 bg-red-500/5'
-              : 'border-amber-900/30 hover:border-amber-800/50'
+              ? 'border-red-400/50 bg-red-50'
+              : 'border-[#D4CAB5] hover:border-[#A67C00]/50'
         ]"
       >
         <!-- Has Audio -->
         <div v-if="fileName || playbackUrl" class="flex flex-col items-center gap-6" @click.stop>
           <!-- Audio Player -->
-          <div class="w-full bg-black border border-amber-900/20 p-4 rounded">
+          <div class="w-full bg-white border border-[#D4CAB5] p-4 rounded-lg shadow-sm">
             <audio :src="playbackUrl" controls class="w-full h-8" />
           </div>
 
-          <div class="flex items-center gap-3 text-amber-500">
+          <div class="flex items-center gap-3 text-[#A67C00]">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
@@ -238,7 +238,7 @@ function handleKeydown(event: KeyboardEvent) {
 
           <button
             @click="clearRecording"
-            class="text-xs text-gray-600 hover:text-amber-500 transition-colors font-sans uppercase tracking-wider"
+            class="text-xs text-[#8B7E6A] hover:text-[#A67C00] transition-colors font-sans uppercase tracking-wider"
           >
             Очистить и записать новое
           </button>
@@ -252,20 +252,20 @@ function handleKeydown(event: KeyboardEvent) {
             class="w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 mb-6 relative"
             :class="isRecording
               ? 'bg-red-500 shadow-[0_0_30px_rgba(239,68,68,0.4)] scale-110'
-              : 'bg-gradient-to-br from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 shadow-[0_0_20px_rgba(212,175,55,0.2)]'"
+              : 'bg-gradient-to-br from-[#A67C00] to-[#B8860B] hover:from-[#B8860B] hover:to-[#C9A227] shadow-[0_0_20px_rgba(166,124,0,0.3)]'"
           >
-            <svg v-if="!isRecording" class="w-8 h-8 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg v-if="!isRecording" class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
             </svg>
             <div v-else class="w-8 h-8 bg-white rounded"></div>
           </button>
 
           <div v-if="!isRecording" class="text-center space-y-2">
-            <p class="text-gray-300 text-lg">Нажмите для записи</p>
-            <p class="text-gray-600 text-xs font-sans uppercase tracking-wider">или перетащите аудио файл</p>
+            <p class="text-[#3D3428] text-lg">Нажмите для записи</p>
+            <p class="text-[#8B7E6A] text-xs font-sans uppercase tracking-wider">или перетащите аудио файл</p>
           </div>
           <div v-else class="text-center">
-            <p class="text-red-400 font-mono text-sm uppercase tracking-wider">Идёт запись...</p>
+            <p class="text-red-600 font-mono text-sm uppercase tracking-wider">Идёт запись...</p>
           </div>
         </div>
       </div>
@@ -273,7 +273,7 @@ function handleKeydown(event: KeyboardEvent) {
 
     <!-- Comment -->
     <div>
-      <label class="block text-[10px] uppercase tracking-[0.2em] text-amber-700 mb-4 font-sans">
+      <label class="block text-[10px] uppercase tracking-[0.2em] text-[#A67C00] mb-4 font-sans">
         Комментарий (опционально)
       </label>
       <textarea
@@ -282,7 +282,7 @@ function handleKeydown(event: KeyboardEvent) {
         @input="handleInput"
         @keydown="handleKeydown"
         placeholder="Опишите настроение, тональность или контекст..."
-        class="w-full min-h-[120px] bg-zinc-950 border border-amber-900/20 rounded p-6 text-base leading-relaxed text-gray-300 font-serif italic placeholder:text-gray-700 placeholder:not-italic resize-none outline-none focus:border-amber-800/40 transition-colors"
+        class="w-full min-h-[120px] bg-white border border-[#D4CAB5] rounded-lg p-6 text-base leading-relaxed text-[#3D3428] font-serif italic placeholder:text-[#A89F8B] placeholder:not-italic resize-none outline-none focus:border-[#A67C00]/50 transition-colors"
       ></textarea>
     </div>
   </div>

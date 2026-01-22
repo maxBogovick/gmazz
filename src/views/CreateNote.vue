@@ -141,25 +141,17 @@ function getSelectedTypeInfo() {
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#0a0a0a] text-white font-serif overflow-x-hidden">
-
-    <!-- Subtle Grain -->
-    <div class="fixed inset-0 pointer-events-none z-50 opacity-[0.015] mix-blend-overlay bg-[url('/noise.png')]"></div>
-
-    <!-- Ambient Light -->
-    <div class="fixed inset-0 pointer-events-none z-0">
-      <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-amber-600/5 blur-[100px]"></div>
-    </div>
+  <div class="min-h-screen bg-[#FAF7F2] text-[#3D3428] font-serif overflow-x-hidden">
 
     <!-- Header -->
     <header
       data-tauri-drag-region
-      class="fixed top-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-xl border-b border-amber-900/20"
+      class="fixed top-0 left-0 right-0 z-50 bg-[#FAF7F2]/95 backdrop-blur-md border-b border-[#D4CAB5]"
     >
       <div class="max-w-5xl mx-auto px-6 lg:px-12 h-20 flex items-center justify-between pointer-events-none">
         <button
           @click="selectedType ? (selectedType = null) : goBack()"
-          class="flex items-center gap-3 text-sm text-gray-400 hover:text-amber-400 transition-colors duration-300 pointer-events-auto group"
+          class="flex items-center gap-3 text-sm text-[#8B7E6A] hover:text-[#A67C00] transition-colors duration-300 pointer-events-auto group"
         >
           <span class="text-xl group-hover:-translate-x-1 transition-transform">←</span>
           <span class="font-light">{{ selectedType ? 'К выбору категории' : 'Вернуться в Архив' }}</span>
@@ -171,15 +163,15 @@ function getSelectedTypeInfo() {
             <div
               class="w-2.5 h-2.5 rounded-full transition-all duration-500"
               :class="{
-                'bg-gray-600 animate-pulse': saveStatus === 'saving',
-                'bg-amber-500 shadow-[0_0_8px_rgba(212,175,55,0.6)]': saveStatus === 'saved',
-                'bg-white/10': saveStatus === 'idle'
+                'bg-[#D4CAB5] animate-pulse': saveStatus === 'saving',
+                'bg-[#A67C00] shadow-[0_0_8px_rgba(166,124,0,0.4)]': saveStatus === 'saved',
+                'bg-[#E0D9C8]': saveStatus === 'idle'
               }"
             ></div>
-            <span v-if="saveStatus === 'saving'" class="text-[10px] text-gray-500 uppercase tracking-widest font-sans">
+            <span v-if="saveStatus === 'saving'" class="text-[10px] text-[#8B7E6A] uppercase tracking-widest font-sans">
               Сохранение...
             </span>
-            <span v-else-if="saveStatus === 'saved'" class="text-[10px] text-amber-600 uppercase tracking-widest font-sans">
+            <span v-else-if="saveStatus === 'saved'" class="text-[10px] text-[#A67C00] uppercase tracking-widest font-sans">
               Сохранено
             </span>
           </div>
@@ -188,7 +180,7 @@ function getSelectedTypeInfo() {
           <button
             v-if="selectedType && content"
             @click="saveNote"
-            class="px-4 py-2 border border-amber-800/40 text-amber-600 hover:bg-amber-900/20 hover:border-amber-600/60 text-xs uppercase tracking-widest font-sans transition-all duration-300"
+            class="px-4 py-2.5 bg-[#A67C00] text-white hover:bg-[#B8860B] text-xs uppercase tracking-widest font-sans transition-all duration-300 rounded"
             title="Сохранить (Cmd+S)"
           >
             Сохранить
@@ -204,15 +196,15 @@ function getSelectedTypeInfo() {
         <!-- Section Header -->
         <div class="text-center mb-16">
           <div class="flex items-center justify-center gap-4 mb-8">
-            <div class="h-px w-12 bg-gradient-to-r from-transparent to-amber-800/40"></div>
-            <span class="text-[10px] uppercase tracking-[0.3em] text-amber-700 font-sans">Новая Запись</span>
-            <div class="h-px w-12 bg-gradient-to-l from-transparent to-amber-800/40"></div>
+            <div class="h-px w-12 bg-gradient-to-r from-transparent to-[#D4CAB5]"></div>
+            <span class="text-[10px] uppercase tracking-[0.3em] text-[#A67C00] font-sans">Новая Запись</span>
+            <div class="h-px w-12 bg-gradient-to-l from-transparent to-[#D4CAB5]"></div>
           </div>
 
-          <h1 class="text-4xl lg:text-5xl font-light mb-4">
-            Добавить в <span class="text-amber-400">Архив</span>
+          <h1 class="text-4xl lg:text-5xl font-light mb-4 text-[#3D3428]">
+            Добавить в <span class="text-[#A67C00]">Архив</span>
           </h1>
-          <p class="text-gray-500 font-light text-lg max-w-xl mx-auto">
+          <p class="text-[#8B7E6A] font-light text-lg max-w-xl mx-auto">
             Выберите категорию для новой записи
           </p>
         </div>
@@ -225,27 +217,27 @@ function getSelectedTypeInfo() {
             @click="selectType(type)"
             class="group relative"
           >
-            <div class="bg-gradient-to-br from-zinc-900 to-black border border-amber-900/20 p-1 transition-all duration-500 group-hover:border-amber-600/40 group-hover:shadow-2xl group-hover:shadow-amber-900/20">
-              <div class="bg-black p-8 min-h-[200px] flex flex-col items-center justify-center text-center relative overflow-hidden">
+            <div class="bg-white border border-[#E0D9C8] rounded-lg p-1 transition-all duration-500 group-hover:border-[#A67C00]/40 group-hover:shadow-lg">
+              <div class="bg-[#FFFEFA] rounded p-8 min-h-[200px] flex flex-col items-center justify-center text-center relative overflow-hidden">
                 <!-- Corner Ornaments -->
-                <div class="absolute top-3 left-3 w-3 h-3 border-t border-l border-amber-900/30 group-hover:border-amber-600/50 transition-colors"></div>
-                <div class="absolute top-3 right-3 w-3 h-3 border-t border-r border-amber-900/30 group-hover:border-amber-600/50 transition-colors"></div>
-                <div class="absolute bottom-3 left-3 w-3 h-3 border-b border-l border-amber-900/30 group-hover:border-amber-600/50 transition-colors"></div>
-                <div class="absolute bottom-3 right-3 w-3 h-3 border-b border-r border-amber-900/30 group-hover:border-amber-600/50 transition-colors"></div>
+                <div class="absolute top-3 left-3 w-3 h-3 border-t border-l border-[#D4CAB5] group-hover:border-[#A67C00]/50 transition-colors"></div>
+                <div class="absolute top-3 right-3 w-3 h-3 border-t border-r border-[#D4CAB5] group-hover:border-[#A67C00]/50 transition-colors"></div>
+                <div class="absolute bottom-3 left-3 w-3 h-3 border-b border-l border-[#D4CAB5] group-hover:border-[#A67C00]/50 transition-colors"></div>
+                <div class="absolute bottom-3 right-3 w-3 h-3 border-b border-r border-[#D4CAB5] group-hover:border-[#A67C00]/50 transition-colors"></div>
 
                 <!-- Icon -->
-                <div class="text-5xl mb-6 text-amber-800/40 group-hover:text-amber-500 transition-colors duration-500">
+                <div class="text-5xl mb-6 text-[#A67C00]/40 group-hover:text-[#A67C00] transition-colors duration-500">
                   {{ icon }}
                 </div>
 
                 <!-- Labels -->
-                <h3 class="text-xl font-light text-white mb-1 group-hover:text-amber-400 transition-colors">
+                <h3 class="text-xl font-light text-[#3D3428] mb-1 group-hover:text-[#A67C00] transition-colors">
                   {{ labelRu }}
                 </h3>
-                <div class="text-[10px] uppercase tracking-[0.2em] text-amber-800/60 mb-3 font-sans">
+                <div class="text-[10px] uppercase tracking-[0.2em] text-[#A89F8B] mb-3 font-sans">
                   {{ label }}
                 </div>
-                <p class="text-xs text-gray-600 group-hover:text-gray-500 transition-colors">
+                <p class="text-xs text-[#8B7E6A] group-hover:text-[#5C5245] transition-colors">
                   {{ description }}
                 </p>
               </div>
@@ -255,8 +247,8 @@ function getSelectedTypeInfo() {
 
         <!-- Keyboard Hint -->
         <div class="text-center mt-12">
-          <div class="inline-flex items-center gap-3 text-[10px] text-gray-700 font-sans">
-            <kbd class="px-2 py-1 bg-zinc-900 border border-zinc-800 rounded text-gray-500 tracking-wider">ESC</kbd>
+          <div class="inline-flex items-center gap-3 text-[10px] text-[#A89F8B] font-sans">
+            <kbd class="px-2 py-1 bg-[#F5F1E8] border border-[#D4CAB5] rounded text-[#8B7E6A] tracking-wider">ESC</kbd>
             <span>для возврата</span>
           </div>
         </div>
@@ -267,31 +259,31 @@ function getSelectedTypeInfo() {
         <!-- Editor Header -->
         <div class="mb-12">
           <div class="flex items-center gap-4 mb-6">
-            <div class="h-px flex-1 bg-gradient-to-r from-transparent to-amber-800/30"></div>
-            <div class="flex items-center gap-4 text-[10px] uppercase tracking-[0.3em] text-amber-700 font-sans">
+            <div class="h-px flex-1 bg-gradient-to-r from-transparent to-[#D4CAB5]"></div>
+            <div class="flex items-center gap-4 text-[10px] uppercase tracking-[0.3em] text-[#A67C00] font-sans">
               <span>{{ getSelectedTypeInfo()?.label }}</span>
             </div>
-            <div class="h-px flex-1 bg-gradient-to-l from-transparent to-amber-800/30"></div>
+            <div class="h-px flex-1 bg-gradient-to-l from-transparent to-[#D4CAB5]"></div>
           </div>
 
           <div class="text-center">
-            <div class="text-4xl text-amber-500/60 mb-4">
+            <div class="text-4xl text-[#A67C00]/60 mb-4">
               {{ getSelectedTypeInfo()?.icon }}
             </div>
-            <h2 class="text-3xl lg:text-4xl font-light">
+            <h2 class="text-3xl lg:text-4xl font-light text-[#3D3428]">
               Новая {{ getSelectedTypeInfo()?.labelRu }}
             </h2>
           </div>
         </div>
 
         <!-- Editor Frame -->
-        <div class="relative bg-gradient-to-br from-zinc-900 to-black border border-amber-900/30 p-1.5 shadow-2xl max-w-3xl mx-auto">
-          <div class="bg-black relative">
+        <div class="relative bg-white border border-[#E0D9C8] rounded-lg p-1.5 shadow-sm max-w-3xl mx-auto">
+          <div class="bg-[#FFFEFA] rounded relative">
             <!-- Corner Details -->
-            <div class="absolute top-4 left-4 w-5 h-5 border-t-2 border-l-2 border-amber-800/30"></div>
-            <div class="absolute top-4 right-4 w-5 h-5 border-t-2 border-r-2 border-amber-800/30"></div>
-            <div class="absolute bottom-4 left-4 w-5 h-5 border-b-2 border-l-2 border-amber-800/30"></div>
-            <div class="absolute bottom-4 right-4 w-5 h-5 border-b-2 border-r-2 border-amber-800/30"></div>
+            <div class="absolute top-4 left-4 w-5 h-5 border-t-2 border-l-2 border-[#D4CAB5]"></div>
+            <div class="absolute top-4 right-4 w-5 h-5 border-t-2 border-r-2 border-[#D4CAB5]"></div>
+            <div class="absolute bottom-4 left-4 w-5 h-5 border-b-2 border-l-2 border-[#D4CAB5]"></div>
+            <div class="absolute bottom-4 right-4 w-5 h-5 border-b-2 border-r-2 border-[#D4CAB5]"></div>
 
             <div class="p-8 lg:p-12">
               <component
@@ -311,7 +303,7 @@ function getSelectedTypeInfo() {
 
             <!-- Footer -->
             <div class="px-8 lg:px-12 pb-6">
-              <div class="pt-6 border-t border-amber-900/10 flex justify-between items-center text-[10px] uppercase tracking-[0.2em] text-gray-700 font-sans">
+              <div class="pt-6 border-t border-[#E0D9C8] flex justify-between items-center text-[10px] uppercase tracking-[0.2em] text-[#A89F8B] font-sans">
                 <span>Архив Gmazz</span>
                 <div class="flex items-center gap-4">
                   <span class="hidden sm:inline">Cmd+S для сохранения</span>

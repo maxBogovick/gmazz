@@ -44,20 +44,20 @@ function handleKeydown(event: KeyboardEvent) {
 <template>
   <div class="w-full space-y-6">
     <div>
-      <label class="block text-[10px] uppercase tracking-[0.2em] text-amber-700 mb-4 font-sans">
+      <label class="block text-[10px] uppercase tracking-[0.2em] text-[#A67C00] mb-4 font-sans">
         Гармоническая Последовательность
       </label>
-      <div class="bg-zinc-950 border border-amber-900/20 p-6 rounded">
+      <div class="bg-white border border-[#D4CAB5] p-6 rounded-lg shadow-sm">
         <textarea
           ref="textarea"
           :value="modelValue"
           @input="handleInput"
           @keydown="handleKeydown"
           placeholder="Cmaj7  |  Dm7  |  G7  |  Cmaj7"
-          class="w-full min-h-[200px] bg-transparent border-none p-0 text-lg leading-loose text-amber-400 font-mono placeholder:text-gray-700 resize-none outline-none focus:ring-0 whitespace-pre"
+          class="w-full min-h-[200px] bg-transparent border-none p-0 text-lg leading-loose text-[#A67C00] font-mono placeholder:text-[#A89F8B] resize-none outline-none focus:ring-0 whitespace-pre"
         ></textarea>
       </div>
-      <p class="text-[10px] text-gray-600 mt-3 font-sans uppercase tracking-wider">
+      <p class="text-[10px] text-[#8B7E6A] mt-3 font-sans uppercase tracking-wider">
         Tab для выравнивания аккордов
       </p>
     </div>

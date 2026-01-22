@@ -44,7 +44,7 @@ watch(() => textarea.value, () => {
 
 <template>
   <div class="w-full">
-    <label class="block text-[10px] uppercase tracking-[0.2em] text-amber-700 mb-4 font-sans">
+    <label class="block text-[10px] uppercase tracking-[0.2em] text-[#A67C00] mb-4 font-sans">
       Личная Заметка
     </label>
     <textarea
@@ -53,7 +53,7 @@ watch(() => textarea.value, () => {
       @input="handleInput"
       @keydown="handleKeydown"
       placeholder="Начните писать..."
-      class="w-full min-h-[250px] bg-transparent border-none p-0 text-xl lg:text-2xl leading-relaxed text-gray-200 font-serif italic placeholder:text-gray-700 placeholder:not-italic resize-none outline-none focus:ring-0"
+      class="w-full min-h-[250px] bg-transparent border-none p-0 text-xl lg:text-2xl leading-relaxed text-[#3D3428] font-serif italic placeholder:text-[#A89F8B] placeholder:not-italic resize-none outline-none focus:ring-0"
     ></textarea>
   </div>
 </template>

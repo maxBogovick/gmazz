@@ -14,7 +14,7 @@ onMounted(() => {
   const barCount = 60;
   const barWidth = width / barCount - 1;
 
-  ctx.fillStyle = '#A9A9A3';
+  ctx.fillStyle = '#C9A227';
 
   for (let i = 0; i < barCount; i++) {
     const barHeight = Math.random() * (height * 0.8) + height * 0.1;

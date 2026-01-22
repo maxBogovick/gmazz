@@ -49,7 +49,7 @@ function togglePlay(event: Event) {
       <button
         v-if="audioPath"
         @click="togglePlay"
-        class="w-16 h-16 flex items-center justify-center rounded-full border-2 border-amber-700/40 text-amber-500 hover:bg-amber-900/20 hover:border-amber-500 transition-all duration-300"
+        class="w-16 h-16 flex items-center justify-center rounded-full border-2 border-[#D4CAB5] text-[#A67C00] hover:bg-[#A67C00]/10 hover:border-[#A67C00] transition-all duration-300"
         :aria-label="isPlaying ? 'Pause' : 'Play'"
       >
         <svg v-if="!isPlaying" class="w-6 h-6 ml-1" fill="currentColor" viewBox="0 0 24 24">
@@ -62,8 +62,8 @@ function togglePlay(event: Event) {
 
       <!-- No Audio Placeholder -->
       <div v-else class="text-center">
-        <div class="text-4xl text-amber-800/30 mb-2">♫</div>
-        <div class="text-xs text-gray-600 font-sans uppercase tracking-wider">Audio Phrase</div>
+        <div class="text-4xl text-[#A67C00]/40 mb-2">♫</div>
+        <div class="text-xs text-[#8B7E6A] font-sans uppercase tracking-wider">Audio Phrase</div>
       </div>
 
       <!-- Waveform Visual -->
@@ -71,7 +71,7 @@ function togglePlay(event: Event) {
         <div
           v-for="i in 20"
           :key="i"
-          class="w-1 bg-amber-700/30 rounded-full transition-all duration-300"
+          class="w-1 bg-[#A67C00]/30 rounded-full transition-all duration-300"
           :class="isPlaying ? 'animate-pulse' : ''"
           :style="{ height: `${8 + Math.random() * 16}px` }"
         ></div>
@@ -79,8 +79,8 @@ function togglePlay(event: Event) {
     </div>
 
     <!-- Comment -->
-    <div v-if="note.content" class="mt-4 pt-3 border-t border-amber-900/20">
-      <p class="text-sm text-gray-400 font-light line-clamp-2">
+    <div v-if="note.content" class="mt-4 pt-3 border-t border-[#E0D9C8]">
+      <p class="text-sm text-[#5C5245] font-light line-clamp-2">
         {{ note.content }}
       </p>
     </div>
