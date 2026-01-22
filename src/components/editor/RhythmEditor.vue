@@ -37,32 +37,42 @@ function handleKeydown(event: KeyboardEvent) {
 </script>
 
 <template>
-  <div class="w-full space-y-6">
+  <div class="w-full space-y-10">
+    <!-- Time Signature Section -->
     <div>
-      <label class="block text-xs font-medium text-[--color-text-muted] uppercase tracking-wider mb-3">
-        Time Signature
+      <label class="block text-[10px] uppercase tracking-[0.2em] text-amber-700 mb-4 font-sans">
+        Размер
       </label>
-      <input
-        ref="signatureInput"
-        type="text"
-        :value="timeSignature"
-        @input="handleInputSignature"
-        @keydown="handleKeydown"
-        placeholder="7/4"
-        class="w-32 bg-[--color-bg-secondary] border border-[--color-border] rounded-lg px-4 py-3 text-3xl font-[--font-mono] text-[--color-accent-brass] placeholder:text-[--color-text-muted] outline-none focus:border-[--color-border-light] transition-colors"
-      />
+      <div class="flex items-center gap-6">
+        <div class="bg-zinc-950 border-2 border-amber-900/40 p-6 inline-flex items-center justify-center">
+          <input
+            ref="signatureInput"
+            type="text"
+            :value="timeSignature"
+            @input="handleInputSignature"
+            @keydown="handleKeydown"
+            placeholder="7/4"
+            class="w-24 bg-transparent border-none text-center text-5xl font-mono font-light text-amber-400 placeholder:text-gray-700 outline-none focus:ring-0"
+          />
+        </div>
+        <div class="text-gray-600 text-sm font-sans">
+          <p class="mb-1">Например:</p>
+          <p class="text-xs text-gray-700">5/4, 7/8, 11/8, 6/4</p>
+        </div>
+      </div>
     </div>
 
+    <!-- Description Section -->
     <div>
-      <label class="block text-xs font-medium text-[--color-text-muted] uppercase tracking-wider mb-3">
-        Feel / Description
+      <label class="block text-[10px] uppercase tracking-[0.2em] text-amber-700 mb-4 font-sans">
+        Характер / Groove
       </label>
       <textarea
         :value="modelValue"
         @input="handleInputContent"
         @keydown="handleKeydown"
-        placeholder="Describe the feeling of this rhythm..."
-        class="w-full min-h-[120px] bg-[--color-bg-secondary] border border-[--color-border] rounded-lg p-4 text-base leading-relaxed text-[--color-text-primary] font-[--font-serif] italic placeholder:text-[--color-text-muted] placeholder:not-italic resize-none outline-none focus:border-[--color-border-light] transition-colors"
+        placeholder="Опишите характер этого ритма..."
+        class="w-full min-h-[150px] bg-zinc-950 border border-amber-900/20 rounded p-6 text-lg leading-relaxed text-gray-300 font-serif italic placeholder:text-gray-700 placeholder:not-italic resize-none outline-none focus:border-amber-800/40 transition-colors"
       ></textarea>
     </div>
   </div>

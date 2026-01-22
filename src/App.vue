@@ -14,18 +14,39 @@ onUnmounted(() => {
 });
 
 function handleGlobalHotkeys(event: KeyboardEvent) {
-  if ((event.metaKey || event.ctrlKey) && event.key === 'n') {
+  const isMod = event.metaKey || event.ctrlKey;
+
+  // Cmd + N -> New Thought (direct)
+  if (isMod && event.key === 'n' && !event.shiftKey) {
     event.preventDefault();
-    if (event.shiftKey) {
-      router.push({ name: 'create' });
-    } else {
-      router.push({ name: 'create', query: { type: 'thought' } });
+    router.push({ name: 'create', query: { type: 'thought' } });
+  }
+
+  // Cmd + Shift + N -> Select Type
+  if (isMod && event.key === 'n' && event.shiftKey) {
+    event.preventDefault();
+    router.push({ name: 'create' });
+  }
+
+  // Esc -> Back / Cancel
+  if (event.key === 'Escape') {
+    // Logic for back navigation if not already in feed
+    if (router.currentRoute.value.name !== 'feed') {
+      router.push({ name: 'feed' });
     }
+  }
+
+  // Cmd + S -> Global Save Trigger
+  if (isMod && event.key === 's') {
+    event.preventDefault();
+    // Dispatch a custom event that editors can listen to
+    window.dispatchEvent(new CustomEvent('jazz-save'));
   }
 }
 </script>
 
 <template>
+  <div class="jazz-texture"></div>
   <RouterView v-slot="{ Component }">
     <Transition name="fade" mode="out-in">
       <component :is="Component" />

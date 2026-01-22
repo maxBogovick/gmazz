@@ -2,14 +2,9 @@
 import { ref, onMounted, onUnmounted } from 'vue';
 import type { Note } from '../../types';
 import { getAssetPath } from '../../api/notes';
-import Waveform from '../common/Waveform.vue';
 
 const props = defineProps<{
   note: Note;
-}>();
-
-defineEmits<{
-  click: [note: Note];
 }>();
 
 const audioPath = ref<string>('');
@@ -44,47 +39,59 @@ function togglePlay(event: Event) {
   }
   isPlaying.value = !isPlaying.value;
 }
-
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
-}
 </script>
 
 <template>
-  <article
-    class="group bg-[--color-bg-card] border border-[--color-border] rounded-lg p-6 cursor-pointer hover:border-[--color-border-light] hover:bg-[--color-bg-tertiary] transition-all"
-    @click="$emit('click', note)"
-  >
-    <div class="flex items-start justify-between gap-4 mb-4">
-      <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-green-500/10 text-green-400 border border-green-500/20">
-        Phrase
-      </span>
-      <time class="text-xs text-[--color-text-muted]">
-        {{ formatDate(note.created_at) }}
-      </time>
-    </div>
-    <div class="flex items-center gap-4 p-4 bg-[--color-bg-secondary] rounded-lg border border-[--color-border]">
+  <div class="h-full flex flex-col">
+    <!-- Audio Player -->
+    <div class="flex-1 flex flex-col items-center justify-center min-h-[140px]">
+      <!-- Play Button -->
       <button
+        v-if="audioPath"
         @click="togglePlay"
-        class="w-12 h-12 flex items-center justify-center rounded-full bg-[--color-accent-brass] hover:bg-[--color-accent-amber] text-[--color-bg-primary] transition-colors flex-shrink-0"
+        class="w-16 h-16 flex items-center justify-center rounded-full border-2 border-amber-700/40 text-amber-500 hover:bg-amber-900/20 hover:border-amber-500 transition-all duration-300"
         :aria-label="isPlaying ? 'Pause' : 'Play'"
       >
-        <svg v-if="!isPlaying" class="w-5 h-5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+        <svg v-if="!isPlaying" class="w-6 h-6 ml-1" fill="currentColor" viewBox="0 0 24 24">
           <path d="M8 5v14l11-7z" />
         </svg>
-        <svg v-else class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+        <svg v-else class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
           <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
         </svg>
       </button>
-      <Waveform class="flex-1 h-12" />
+
+      <!-- No Audio Placeholder -->
+      <div v-else class="text-center">
+        <div class="text-4xl text-amber-800/30 mb-2">♫</div>
+        <div class="text-xs text-gray-600 font-sans uppercase tracking-wider">Audio Phrase</div>
+      </div>
+
+      <!-- Waveform Visual -->
+      <div v-if="audioPath" class="mt-4 flex items-center gap-1 h-8">
+        <div
+          v-for="i in 20"
+          :key="i"
+          class="w-1 bg-amber-700/30 rounded-full transition-all duration-300"
+          :class="isPlaying ? 'animate-pulse' : ''"
+          :style="{ height: `${8 + Math.random() * 16}px` }"
+        ></div>
+      </div>
     </div>
-    <p v-if="note.metadata.comment || note.content" class="mt-4 text-sm text-[--color-text-secondary]">
-      {{ note.metadata.comment || note.content }}
-    </p>
-  </article>
+
+    <!-- Comment -->
+    <div v-if="note.content" class="mt-4 pt-3 border-t border-amber-900/20">
+      <p class="text-sm text-gray-400 font-light line-clamp-2">
+        {{ note.content }}
+      </p>
+    </div>
+  </div>
 </template>
+
+<style scoped>
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+</style>

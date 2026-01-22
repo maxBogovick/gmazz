@@ -1,1 +1,185 @@
 @import 'tailwindcss';
+
+@theme {
+  /* Museum Color Palette - Deep, Prestigious, Warm */
+  --color-bg-deep: #0A0A0C;
+  --color-bg-primary: #0E0F12;
+  --color-bg-secondary: #141518;
+  --color-bg-tertiary: #1A1B1F;
+  --color-bg-card: #18191D;
+  --color-bg-elevated: #1E1F24;
+
+  /* Borders */
+  --color-border: #252730;
+  --color-border-subtle: #1E2028;
+  --color-border-light: #32343D;
+
+  /* Text */
+  --color-text-primary: #F5F5F3;
+  --color-text-secondary: #A8A8A0;
+  --color-text-muted: #6B6B66;
+  --color-text-dim: #4A4A46;
+
+  /* Accent - Warm Gold/Brass */
+  --color-accent-gold: #D4AF37;
+  --color-accent-brass: #C9A24D;
+  --color-accent-amber: #E5C76B;
+  --color-accent-copper: #B87333;
+  --color-accent-dim: rgba(212, 175, 55, 0.12);
+  --color-accent-glow: rgba(212, 175, 55, 0.08);
+
+  /* Typography */
+  --font-display: "Playfair Display", "Crimson Text", Georgia, serif;
+  --font-serif: "Crimson Text", Georgia, serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", Consolas, monospace;
+
+  /* Spacing */
+  --spacing-section: 8rem;
+  --spacing-block: 4rem;
+}
+
+/* Base styles */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-bg-deep);
+  color: var(--color-text-primary);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-light);
+}
+
+/* Selection */
+::selection {
+  background-color: var(--color-accent-dim);
+  color: var(--color-accent-gold);
+}
+
+/* Typography utilities */
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-serif {
+  font-family: var(--font-serif);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* Decorative line */
+.ornament {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.ornament::before,
+.ornament::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--color-border), transparent);
+}
+
+/* Gold gradient text */
+.text-gold-gradient {
+  background: linear-gradient(135deg, var(--color-accent-amber) 0%, var(--color-accent-gold) 50%, var(--color-accent-brass) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Subtle hover glow */
+.hover-glow {
+  transition: box-shadow 0.4s ease, border-color 0.4s ease;
+}
+
+.hover-glow:hover {
+  box-shadow: 0 0 40px var(--color-accent-glow);
+  border-color: var(--color-accent-brass);
+}
+
+/* Fade in animation */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.8s ease forwards;
+}
+
+/* Stagger delays */
+.delay-100 { animation-delay: 0.1s; }
+.delay-200 { animation-delay: 0.2s; }
+.delay-300 { animation-delay: 0.3s; }
+.delay-400 { animation-delay: 0.4s; }
+.delay-500 { animation-delay: 0.5s; }
+
+/* Museum card style */
+.museum-card {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border-subtle);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.museum-card:hover {
+  background: var(--color-bg-elevated);
+  border-color: var(--color-border);
+  transform: translateY(-2px);
+}
+
+/* Brass button */
+.btn-brass {
+  background: linear-gradient(135deg, var(--color-accent-brass) 0%, var(--color-accent-gold) 100%);
+  color: var(--color-bg-deep);
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.btn-brass:hover {
+  background: linear-gradient(135deg, var(--color-accent-gold) 0%, var(--color-accent-amber) 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px var(--color-accent-dim);
+}
+
+/* Section divider */
+.section-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--color-border), transparent);
+}

@@ -4,44 +4,47 @@ import type { Note } from '../../types';
 defineProps<{
   note: Note;
 }>();
-
-defineEmits<{
-  click: [note: Note];
-}>();
-
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
-}
 </script>
 
 <template>
-  <article
-    class="group bg-[--color-bg-card] border border-[--color-border] rounded-lg p-6 cursor-pointer hover:border-[--color-border-light] hover:bg-[--color-bg-tertiary] transition-all"
-    @click="$emit('click', note)"
-  >
-    <div class="flex items-start justify-between gap-4 mb-4">
-      <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20">
-        Rhythm
-      </span>
-      <time class="text-xs text-[--color-text-muted]">
-        {{ formatDate(note.created_at) }}
-      </time>
-    </div>
-    <div class="flex items-baseline gap-4">
-      <span
-        v-if="note.metadata.time_signature"
-        class="text-3xl font-[--font-mono] font-medium text-[--color-accent-brass]"
+  <div class="h-full flex flex-col">
+    <!-- Time Signature Display -->
+    <div class="flex-1 flex flex-col items-center justify-center">
+      <div
+        v-if="note.metadata?.time_signature"
+        class="text-center"
       >
-        {{ note.metadata.time_signature }}
-      </span>
-      <p class="text-base text-[--color-text-secondary] italic">
+        <!-- Time Signature -->
+        <div class="text-6xl font-mono font-light text-amber-400 tracking-wider mb-2">
+          {{ note.metadata.time_signature }}
+        </div>
+        <div class="text-[10px] uppercase tracking-[0.2em] text-gray-600 font-sans">
+          Time Signature
+        </div>
+      </div>
+
+      <div v-else class="text-center">
+        <div class="text-5xl text-amber-800/30 mb-2">𝅘𝅥𝅮</div>
+        <div class="text-xs text-gray-600 font-sans uppercase tracking-wider">
+          Rhythm Pattern
+        </div>
+      </div>
+    </div>
+
+    <!-- Feel/Description -->
+    <div v-if="note.content" class="mt-4 pt-4 border-t border-amber-900/20">
+      <p class="text-sm text-gray-400 font-serif italic text-center line-clamp-3">
         {{ note.content }}
       </p>
     </div>
-  </article>
+  </div>
 </template>
+
+<style scoped>
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+</style>

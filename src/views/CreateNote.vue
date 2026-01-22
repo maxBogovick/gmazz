@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import { useNotesStore } from '../store/notes';
 import { uploadFile } from '../api/notes';
 import type { NoteType, NoteMetadata } from '../types';
@@ -10,57 +10,41 @@ import PhraseEditor from '../components/editor/PhraseEditor.vue';
 import RhythmEditor from '../components/editor/RhythmEditor.vue';
 import ScoreEditor from '../components/editor/ScoreEditor.vue';
 
+const route = useRoute();
 const router = useRouter();
 const store = useNotesStore();
 
-const selectedType = ref<NoteType | null>(null);
+const selectedType = ref<NoteType | null>((route.query.type as NoteType) || null);
 const content = ref('');
 const metadata = ref<NoteMetadata>({});
 const saveStatus = ref<'idle' | 'saving' | 'saved'>('idle');
 const autoSaveTimer = ref<number | null>(null);
 const pendingFileData = ref<{ name: string; data: number[] } | null>(null);
-const mouseX = ref(0);
-const mouseY = ref(0);
-const scrollY = ref(0);
 
-const noteTypes: { type: NoteType; label: string; description: string; icon: string }[] = [
-  { type: 'thought', label: 'Thought', description: 'Free text, idea, or reflection', icon: '✨' },
-  { type: 'harmony', label: 'Harmony', description: 'Chord progression or voicings', icon: '🎵' },
-  { type: 'phrase', label: 'Phrase', description: 'Audio recording with notes', icon: '📝' },
-  { type: 'rhythm', label: 'Rhythm', description: 'Time signature and feel', icon: '⚡' },
-  { type: 'score', label: 'Score', description: 'Image or PDF document', icon: '🎼' },
+const noteTypes: { type: NoteType; label: string; labelRu: string; description: string; icon: string }[] = [
+  { type: 'score', label: 'Original Score', labelRu: 'Партитура', description: 'Нотные записи и аранжировки', icon: '𝄞' },
+  { type: 'harmony', label: 'Harmonic Study', labelRu: 'Гармония', description: 'Аккордовые последовательности', icon: '♯' },
+  { type: 'phrase', label: 'Recorded Phrase', labelRu: 'Фраза', description: 'Аудиозаписи мелодий', icon: '♫' },
+  { type: 'rhythm', label: 'Rhythmic Pattern', labelRu: 'Ритм', description: 'Ритмические паттерны', icon: '𝅘𝅥𝅮' },
+  { type: 'thought', label: 'Personal Note', labelRu: 'Заметка', description: 'Размышления о музыке', icon: '✍' },
 ];
-
-const headerScrolled = computed(() => scrollY.value > 50);
-
-const cursorStyle = computed(() => ({
-  left: `${mouseX.value}px`,
-  top: `${mouseY.value}px`,
-}));
 
 onMounted(() => {
   document.addEventListener('keydown', handleGlobalKeydown);
-  window.addEventListener('mousemove', handleMouseMove);
-  window.addEventListener('scroll', handleScroll);
 });
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleGlobalKeydown);
-  window.removeEventListener('mousemove', handleMouseMove);
-  window.removeEventListener('scroll', handleScroll);
   if (autoSaveTimer.value) {
     clearTimeout(autoSaveTimer.value);
   }
 });
 
-function handleMouseMove(e: MouseEvent) {
-  mouseX.value = e.clientX;
-  mouseY.value = e.clientY;
-}
-
-function handleScroll() {
-  scrollY.value = window.scrollY;
-}
+watch(() => route.query.type, (newType) => {
+  if (newType) {
+    selectedType.value = newType as NoteType;
+  }
+});
 
 watch([content, metadata], () => {
   if (!selectedType.value || !content.value) return;
@@ -118,9 +102,9 @@ async function saveNote() {
     if (pendingFileData.value) {
       const fileType = selectedType.value === 'phrase' ? 'audio' : 'scores';
       const path = await uploadFile(
-          pendingFileData.value.name,
-          pendingFileData.value.data,
-          fileType
+        pendingFileData.value.name,
+        pendingFileData.value.data,
+        fileType
       );
       metadata.value.file_path = path;
       pendingFileData.value = null;
@@ -157,165 +141,183 @@ function getSelectedTypeInfo() {
 </script>
 
 <template>
-  <div class="min-h-screen relative overflow-x-hidden bg-[#12141a] text-gray-200 font-sans">
-    <!-- Animated Background Orbs -->
-    <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-      <div class="absolute rounded-full blur-[100px] opacity-15 w-[600px] h-[600px] -top-[250px] -left-[200px] bg-[radial-gradient(circle,rgba(251,191,36,1)_0%,transparent_70%)] animate-[float_25s_ease-in-out_infinite]"></div>
-      <div class="absolute rounded-full blur-[100px] opacity-15 w-[500px] h-[500px] top-[40%] -right-[150px] bg-[radial-gradient(circle,rgba(245,158,11,1)_0%,transparent_70%)] animate-[float_20s_ease-in-out_infinite_reverse]"></div>
-      <div class="absolute rounded-full blur-[100px] opacity-15 w-[550px] h-[550px] -bottom-[200px] left-[35%] bg-[radial-gradient(circle,rgba(217,119,6,1)_0%,transparent_70%)] animate-[float_22s_ease-in-out_infinite]"></div>
-    </div>
+  <div class="min-h-screen bg-[#0a0a0a] text-white font-serif overflow-x-hidden">
 
-    <!-- Cursor Glow Effect -->
-    <div
-        class="hidden lg:block fixed w-[400px] h-[400px] rounded-full pointer-events-none -translate-x-1/2 -translate-y-1/2 z-10 transition-opacity duration-300 bg-[radial-gradient(circle,rgba(251,191,36,0.08)_0%,transparent_70%)]"
-        :style="cursorStyle"
-    ></div>
+    <!-- Subtle Grain -->
+    <div class="fixed inset-0 pointer-events-none z-50 opacity-[0.015] mix-blend-overlay bg-[url('/noise.png')]"></div>
+
+    <!-- Ambient Light -->
+    <div class="fixed inset-0 pointer-events-none z-0">
+      <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-amber-600/5 blur-[100px]"></div>
+    </div>
 
     <!-- Header -->
     <header
-        class="fixed top-0 left-0 right-0 z-50 transition-all duration-500 border-b border-transparent"
-        :class="{ 'bg-[#12141a]/85 backdrop-blur-2xl border-white/10 shadow-xl': headerScrolled }"
+      data-tauri-drag-region
+      class="fixed top-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-xl border-b border-amber-900/20"
     >
-      <div class="max-w-[1400px] mx-auto px-6 h-20 flex items-center justify-between gap-6 md:px-8">
+      <div class="max-w-5xl mx-auto px-6 lg:px-12 h-20 flex items-center justify-between pointer-events-none">
         <button
-            @click="selectedType ? (selectedType = null) : goBack()"
-            class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-gray-400 hover:text-white hover:bg-white/5 transition-all"
+          @click="selectedType ? (selectedType = null) : goBack()"
+          class="flex items-center gap-3 text-sm text-gray-400 hover:text-amber-400 transition-colors duration-300 pointer-events-auto group"
         >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-          </svg>
-          {{ selectedType ? 'Back' : 'Cancel' }}
+          <span class="text-xl group-hover:-translate-x-1 transition-transform">←</span>
+          <span class="font-light">{{ selectedType ? 'К выбору категории' : 'Вернуться в Архив' }}</span>
         </button>
 
-        <div class="flex items-center gap-4">
-          <div v-if="selectedType" class="flex items-center gap-2">
-            <span v-if="saveStatus === 'saving'" class="text-xs text-gray-500">
-              Saving...
+        <div class="flex items-center gap-6 pointer-events-auto">
+          <!-- Save Status -->
+          <div v-if="selectedType" class="flex items-center gap-3">
+            <div
+              class="w-2.5 h-2.5 rounded-full transition-all duration-500"
+              :class="{
+                'bg-gray-600 animate-pulse': saveStatus === 'saving',
+                'bg-amber-500 shadow-[0_0_8px_rgba(212,175,55,0.6)]': saveStatus === 'saved',
+                'bg-white/10': saveStatus === 'idle'
+              }"
+            ></div>
+            <span v-if="saveStatus === 'saving'" class="text-[10px] text-gray-500 uppercase tracking-widest font-sans">
+              Сохранение...
             </span>
-            <span v-else-if="saveStatus === 'saved'" class="flex items-center gap-1.5 text-xs text-green-400">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-              </svg>
-              Saved
+            <span v-else-if="saveStatus === 'saved'" class="text-[10px] text-amber-600 uppercase tracking-widest font-sans">
+              Сохранено
             </span>
           </div>
+
+          <!-- Manual Save Button -->
           <button
-              v-if="selectedType && content"
-              @click="saveNote"
-              class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-600 text-[#12141a] text-sm font-bold shadow-[0_0_15px_rgba(251,191,36,0.4)] hover:shadow-[0_0_25px_rgba(251,191,36,0.6)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300"
+            v-if="selectedType && content"
+            @click="saveNote"
+            class="px-4 py-2 border border-amber-800/40 text-amber-600 hover:bg-amber-900/20 hover:border-amber-600/60 text-xs uppercase tracking-widest font-sans transition-all duration-300"
+            title="Сохранить (Cmd+S)"
           >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-            </svg>
-            Save Entry
+            Сохранить
           </button>
         </div>
       </div>
     </header>
 
-    <main class="relative z-20 max-w-[1400px] mx-auto pt-36 px-6 pb-24 md:px-8">
+    <main class="relative z-10 max-w-5xl mx-auto pt-32 px-6 lg:px-12 pb-24">
+
       <!-- Type Selection -->
-      <div v-if="!selectedType">
+      <div v-if="!selectedType" class="fade-in">
+        <!-- Section Header -->
         <div class="text-center mb-16">
-          <div class="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-600 mb-6 shadow-[0_0_30px_rgba(251,191,36,0.4)]">
-            <svg class="w-9 h-9 text-[#12141a]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-            </svg>
+          <div class="flex items-center justify-center gap-4 mb-8">
+            <div class="h-px w-12 bg-gradient-to-r from-transparent to-amber-800/40"></div>
+            <span class="text-[10px] uppercase tracking-[0.3em] text-amber-700 font-sans">Новая Запись</span>
+            <div class="h-px w-12 bg-gradient-to-l from-transparent to-amber-800/40"></div>
           </div>
-          <h1 class="text-3xl font-bold text-white mb-4 tracking-tight">Create New Entry</h1>
-          <p class="text-sm text-gray-400 max-w-md mx-auto leading-relaxed">Choose the type of entry you want to create and start capturing your musical ideas</p>
+
+          <h1 class="text-4xl lg:text-5xl font-light mb-4">
+            Добавить в <span class="text-amber-400">Архив</span>
+          </h1>
+          <p class="text-gray-500 font-light text-lg max-w-xl mx-auto">
+            Выберите категорию для новой записи
+          </p>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
+        <!-- Type Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-4xl mx-auto">
           <button
-              v-for="{ type, label, description, icon } in noteTypes"
-              :key="type"
-              @click="selectType(type)"
-              class="group relative"
+            v-for="{ type, label, labelRu, description, icon } in noteTypes"
+            :key="type"
+            @click="selectType(type)"
+            class="group relative"
           >
-            <!-- Glow Effect -->
-            <div class="absolute -inset-[3px] bg-gradient-to-r from-amber-500 to-orange-600 rounded-2xl opacity-0 blur-lg transition-opacity duration-500 group-hover:opacity-50 -z-10"></div>
+            <div class="bg-gradient-to-br from-zinc-900 to-black border border-amber-900/20 p-1 transition-all duration-500 group-hover:border-amber-600/40 group-hover:shadow-2xl group-hover:shadow-amber-900/20">
+              <div class="bg-black p-8 min-h-[200px] flex flex-col items-center justify-center text-center relative overflow-hidden">
+                <!-- Corner Ornaments -->
+                <div class="absolute top-3 left-3 w-3 h-3 border-t border-l border-amber-900/30 group-hover:border-amber-600/50 transition-colors"></div>
+                <div class="absolute top-3 right-3 w-3 h-3 border-t border-r border-amber-900/30 group-hover:border-amber-600/50 transition-colors"></div>
+                <div class="absolute bottom-3 left-3 w-3 h-3 border-b border-l border-amber-900/30 group-hover:border-amber-600/50 transition-colors"></div>
+                <div class="absolute bottom-3 right-3 w-3 h-3 border-b border-r border-amber-900/30 group-hover:border-amber-600/50 transition-colors"></div>
 
-            <!-- Card -->
-            <div class="bg-[#1a1d24] border border-white/10 rounded-2xl p-8 text-left transition-all duration-500 group-hover:border-white/20 group-hover:-translate-y-1.5 group-hover:shadow-2xl relative overflow-hidden">
-              <!-- Top Accent Bar -->
-              <div class="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-amber-400 to-orange-600 opacity-0 transition-opacity duration-500 group-hover:opacity-100"></div>
-
-              <div class="flex items-center justify-between mb-4">
-                <div class="w-14 h-14 flex items-center justify-center text-2xl bg-[#12141a] border border-white/10 rounded-xl transition-all duration-300 group-hover:bg-gradient-to-br group-hover:from-amber-400 group-hover:to-orange-600 group-hover:border-transparent group-hover:scale-110 group-hover:rotate-[8deg] group-hover:shadow-lg">
+                <!-- Icon -->
+                <div class="text-5xl mb-6 text-amber-800/40 group-hover:text-amber-500 transition-colors duration-500">
                   {{ icon }}
                 </div>
-                <svg class="w-5 h-5 text-gray-600 transition-all duration-300 group-hover:text-amber-400 group-hover:translate-x-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-              </div>
 
-              <h3 class="text-lg font-bold text-white mb-2">{{ label }}</h3>
-              <p class="text-sm text-gray-400 leading-relaxed">{{ description }}</p>
+                <!-- Labels -->
+                <h3 class="text-xl font-light text-white mb-1 group-hover:text-amber-400 transition-colors">
+                  {{ labelRu }}
+                </h3>
+                <div class="text-[10px] uppercase tracking-[0.2em] text-amber-800/60 mb-3 font-sans">
+                  {{ label }}
+                </div>
+                <p class="text-xs text-gray-600 group-hover:text-gray-500 transition-colors">
+                  {{ description }}
+                </p>
+              </div>
             </div>
           </button>
         </div>
 
-        <div class="flex items-center justify-center gap-2 mt-12">
-          <span class="text-xs text-gray-500">Press</span>
-          <kbd class="px-2 py-1 bg-[#1a1d24] border border-white/10 rounded text-xs text-gray-400 font-mono">Esc</kbd>
-          <span class="text-xs text-gray-500">to go back</span>
+        <!-- Keyboard Hint -->
+        <div class="text-center mt-12">
+          <div class="inline-flex items-center gap-3 text-[10px] text-gray-700 font-sans">
+            <kbd class="px-2 py-1 bg-zinc-900 border border-zinc-800 rounded text-gray-500 tracking-wider">ESC</kbd>
+            <span>для возврата</span>
+          </div>
         </div>
       </div>
 
       <!-- Editor -->
-      <div v-else>
-        <div class="max-w-4xl mx-auto">
-          <!-- Editor Header -->
-          <div class="mb-8">
-            <div class="flex items-center gap-3 mb-3">
-              <div class="w-12 h-12 flex items-center justify-center text-xl bg-gradient-to-br from-amber-400 to-orange-600 rounded-xl shadow-[0_0_20px_rgba(251,191,36,0.3)]">
-                {{ getSelectedTypeInfo()?.icon }}
-              </div>
-              <div>
-                <h2 class="text-xl font-bold text-white">New {{ getSelectedTypeInfo()?.label }}</h2>
-                <p class="text-sm text-gray-400">{{ getSelectedTypeInfo()?.description }}</p>
-              </div>
+      <div v-else class="fade-in">
+        <!-- Editor Header -->
+        <div class="mb-12">
+          <div class="flex items-center gap-4 mb-6">
+            <div class="h-px flex-1 bg-gradient-to-r from-transparent to-amber-800/30"></div>
+            <div class="flex items-center gap-4 text-[10px] uppercase tracking-[0.3em] text-amber-700 font-sans">
+              <span>{{ getSelectedTypeInfo()?.label }}</span>
             </div>
+            <div class="h-px flex-1 bg-gradient-to-l from-transparent to-amber-800/30"></div>
           </div>
 
-          <!-- Editor Card -->
-          <div class="relative group">
-            <!-- Glow Effect -->
-            <div class="absolute -inset-[3px] bg-gradient-to-r from-amber-500 to-orange-600 rounded-2xl opacity-20 blur-lg -z-10"></div>
+          <div class="text-center">
+            <div class="text-4xl text-amber-500/60 mb-4">
+              {{ getSelectedTypeInfo()?.icon }}
+            </div>
+            <h2 class="text-3xl lg:text-4xl font-light">
+              Новая {{ getSelectedTypeInfo()?.labelRu }}
+            </h2>
+          </div>
+        </div>
 
-            <div class="bg-[#1a1d24] border border-white/10 rounded-2xl p-8 relative overflow-hidden">
-              <!-- Top Accent Bar -->
-              <div class="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-amber-400 to-orange-600"></div>
+        <!-- Editor Frame -->
+        <div class="relative bg-gradient-to-br from-zinc-900 to-black border border-amber-900/30 p-1.5 shadow-2xl max-w-3xl mx-auto">
+          <div class="bg-black relative">
+            <!-- Corner Details -->
+            <div class="absolute top-4 left-4 w-5 h-5 border-t-2 border-l-2 border-amber-800/30"></div>
+            <div class="absolute top-4 right-4 w-5 h-5 border-t-2 border-r-2 border-amber-800/30"></div>
+            <div class="absolute bottom-4 left-4 w-5 h-5 border-b-2 border-l-2 border-amber-800/30"></div>
+            <div class="absolute bottom-4 right-4 w-5 h-5 border-b-2 border-r-2 border-amber-800/30"></div>
 
+            <div class="p-8 lg:p-12">
               <component
-                  :is="selectedType === 'thought' ? ThoughtEditor :
+                :is="selectedType === 'thought' ? ThoughtEditor :
                      selectedType === 'harmony' ? HarmonyEditor :
                      selectedType === 'phrase' ? PhraseEditor :
                      selectedType === 'rhythm' ? RhythmEditor :
                      ScoreEditor"
-                  v-model="content"
-                  :time-signature="metadata.time_signature"
-                  :file-path="metadata.file_path"
-                  @save="handleEditorSave"
-                  @update:time-signature="updateTimeSignature"
-                  @update:file-path="handleFilePath"
+                v-model="content"
+                :time-signature="metadata.time_signature"
+                :file-path="metadata.file_path"
+                @save="handleEditorSave"
+                @update:time-signature="updateTimeSignature"
+                @update:file-path="handleFilePath"
               />
             </div>
-          </div>
 
-          <!-- Keyboard Shortcuts -->
-          <div class="flex flex-wrap items-center justify-center gap-4 mt-8 text-xs text-gray-500">
-            <div class="flex items-center gap-2">
-              <kbd class="px-2 py-1 bg-[#1a1d24] border border-white/10 rounded text-gray-400 font-mono">Cmd</kbd>
-              <span>+</span>
-              <kbd class="px-2 py-1 bg-[#1a1d24] border border-white/10 rounded text-gray-400 font-mono">S</kbd>
-              <span>to save</span>
-            </div>
-            <span class="text-gray-700">·</span>
-            <div class="flex items-center gap-2">
-              <kbd class="px-2 py-1 bg-[#1a1d24] border border-white/10 rounded text-gray-400 font-mono">Esc</kbd>
-              <span>to go back</span>
+            <!-- Footer -->
+            <div class="px-8 lg:px-12 pb-6">
+              <div class="pt-6 border-t border-amber-900/10 flex justify-between items-center text-[10px] uppercase tracking-[0.2em] text-gray-700 font-sans">
+                <span>Архив Gmazz</span>
+                <div class="flex items-center gap-4">
+                  <span class="hidden sm:inline">Cmd+S для сохранения</span>
+                  <span>{{ new Date().toLocaleDateString('ru-RU') }}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -324,11 +326,19 @@ function getSelectedTypeInfo() {
   </div>
 </template>
 
-<style>
-/* Custom Keyframe for Float */
-@keyframes float {
-  0% { transform: translateY(0) translateX(0); }
-  50% { transform: translateY(-40px) translateX(30px); }
-  100% { transform: translateY(0) translateX(0); }
+<style scoped>
+.fade-in {
+  animation: fadeIn 0.8s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>

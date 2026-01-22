@@ -44,16 +44,16 @@ watch(() => textarea.value, () => {
 
 <template>
   <div class="w-full">
-    <label class="block text-xs font-medium text-[--color-text-muted] uppercase tracking-wider mb-3">
-      Your thought
+    <label class="block text-[10px] uppercase tracking-[0.2em] text-amber-700 mb-4 font-sans">
+      Личная Заметка
     </label>
     <textarea
       ref="textarea"
       :value="modelValue"
       @input="handleInput"
       @keydown="handleKeydown"
-      placeholder="Write your thought, idea, or reflection..."
-      class="w-full min-h-[200px] bg-[--color-bg-secondary] border border-[--color-border] rounded-lg p-4 text-base leading-relaxed text-[--color-text-primary] font-[--font-serif] placeholder:text-[--color-text-muted] resize-none outline-none focus:border-[--color-border-light] transition-colors"
+      placeholder="Начните писать..."
+      class="w-full min-h-[250px] bg-transparent border-none p-0 text-xl lg:text-2xl leading-relaxed text-gray-200 font-serif italic placeholder:text-gray-700 placeholder:not-italic resize-none outline-none focus:ring-0"
     ></textarea>
   </div>
 </template>

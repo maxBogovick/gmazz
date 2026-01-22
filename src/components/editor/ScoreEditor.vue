@@ -13,9 +13,11 @@ const emit = defineEmits<{
 }>();
 
 const textarea = ref<HTMLTextAreaElement | null>(null);
+const fileInput = ref<HTMLInputElement | null>(null);
 const isDragging = ref(false);
 const fileName = ref<string>('');
 const previewUrl = ref<string>('');
+const isImageFile = ref(false);
 
 onMounted(() => {
   document.addEventListener('dragover', handleDragOver);
@@ -49,16 +51,40 @@ async function handleDrop(event: DragEvent) {
   const files = event.dataTransfer?.files;
   if (!files || files.length === 0) return;
 
-  const file = files[0];
+  processFile(files[0]);
+}
+
+function triggerFileDialog() {
+  fileInput.value?.click();
+}
+
+async function handleFileSelect(event: Event) {
+  const target = event.target as HTMLInputElement;
+  if (target.files && target.files.length > 0) {
+    processFile(target.files[0]);
+  }
+}
+
+async function processFile(file: File) {
   const isImage = file.type.startsWith('image/');
   const isPdf = file.type === 'application/pdf';
 
-  if (!isImage && !isPdf) return;
+  if (!isImage && !isPdf) {
+    alert('Пожалуйста, выберите изображение или PDF файл.');
+    return;
+  }
 
   fileName.value = file.name;
+  isImageFile.value = isImage;
+
+  if (previewUrl.value) {
+    URL.revokeObjectURL(previewUrl.value);
+  }
 
   if (isImage) {
     previewUrl.value = URL.createObjectURL(file);
+  } else {
+    previewUrl.value = '';
   }
 
   const arrayBuffer = await file.arrayBuffer();
@@ -66,6 +92,13 @@ async function handleDrop(event: DragEvent) {
   emit('update:filePath', file.name, Array.from(uint8Array));
 
   textarea.value?.focus();
+}
+
+function clearFile() {
+  fileName.value = '';
+  previewUrl.value = '';
+  isImageFile.value = false;
+  emit('update:filePath', '', []);
 }
 
 function handleInput(event: Event) {
@@ -82,56 +115,91 @@ function handleKeydown(event: KeyboardEvent) {
 </script>
 
 <template>
-  <div class="w-full space-y-6">
+  <div class="w-full space-y-8">
+    <!-- Drop Zone -->
     <div>
-      <label class="block text-xs font-medium text-[--color-text-muted] uppercase tracking-wider mb-3">
-        Score File
+      <label class="block text-[10px] uppercase tracking-[0.2em] text-amber-700 mb-4 font-sans">
+        Файл Партитуры
       </label>
+
+      <!-- Hidden File Input -->
+      <input
+        type="file"
+        ref="fileInput"
+        class="hidden"
+        accept="image/*,application/pdf"
+        @change="handleFileSelect"
+      />
+
       <div
+        @click="triggerFileDialog"
         :class="[
-          'p-6 border-2 border-dashed rounded-lg transition-all',
+          'relative bg-zinc-950 border-2 border-dashed rounded p-8 transition-all duration-300 cursor-pointer',
           isDragging
-            ? 'border-[--color-accent-brass] bg-[--color-accent-dim]'
-            : 'border-[--color-border] hover:border-[--color-border-light]'
+            ? 'border-amber-500 bg-amber-900/10'
+            : 'border-amber-900/30 hover:border-amber-800/50'
         ]"
       >
-        <div v-if="previewUrl" class="space-y-4">
-          <img
-            :src="previewUrl"
-            :alt="fileName"
-            class="max-w-full max-h-64 mx-auto rounded-lg border border-[--color-border]"
-          />
-          <p class="text-sm text-center text-[--color-text-secondary]">{{ fileName }}</p>
+        <!-- Has Image Preview -->
+        <div v-if="previewUrl" class="space-y-4" @click.stop>
+          <div class="relative bg-white p-2 rounded shadow-lg">
+            <img
+              :src="previewUrl"
+              :alt="fileName"
+              class="max-w-full max-h-[400px] mx-auto rounded"
+            />
+          </div>
+          <div class="flex items-center justify-center gap-4">
+            <span class="text-sm text-amber-500 font-mono">{{ fileName }}</span>
+            <button
+              @click="clearFile"
+              class="text-xs text-gray-600 hover:text-amber-500 transition-colors font-sans uppercase tracking-wider"
+            >
+              Удалить
+            </button>
+          </div>
         </div>
-        <div v-else-if="fileName" class="flex items-center justify-center gap-4 py-4">
-          <div class="w-12 h-12 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400">
-            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+
+        <!-- Has PDF (no preview) -->
+        <div v-else-if="fileName" class="flex flex-col items-center gap-4 py-8" @click.stop>
+          <div class="w-16 h-16 rounded bg-red-500/10 flex items-center justify-center text-red-400">
+            <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
               <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z" />
             </svg>
           </div>
-          <p class="text-sm font-medium text-[--color-text-primary]">{{ fileName }}</p>
+          <div class="text-center">
+            <p class="text-base text-gray-200">{{ fileName }}</p>
+            <p class="text-xs text-gray-600 font-sans uppercase tracking-wider mt-1">PDF документ</p>
+          </div>
+          <button
+            @click="clearFile"
+            class="text-xs text-gray-600 hover:text-amber-500 transition-colors font-sans uppercase tracking-wider"
+          >
+            Удалить
+          </button>
         </div>
-        <div v-else class="text-center py-4">
-          <svg class="w-10 h-10 mx-auto text-[--color-text-muted] mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-          </svg>
-          <p class="text-sm text-[--color-text-secondary]">Drop image or PDF here</p>
-          <p class="text-xs text-[--color-text-muted] mt-1">PNG, JPG, or PDF files</p>
+
+        <!-- Empty State -->
+        <div v-else class="flex flex-col items-center justify-center py-10 text-center">
+          <div class="text-5xl text-amber-800/40 mb-4">𝄞</div>
+          <p class="text-gray-300 text-lg mb-2">Нажмите или перетащите файл</p>
+          <p class="text-xs text-gray-600 font-sans uppercase tracking-wider">PNG, JPG, или PDF</p>
         </div>
       </div>
     </div>
 
+    <!-- Notes -->
     <div>
-      <label class="block text-xs font-medium text-[--color-text-muted] uppercase tracking-wider mb-3">
-        Note (optional)
+      <label class="block text-[10px] uppercase tracking-[0.2em] text-amber-700 mb-4 font-sans">
+        Аннотация (опционально)
       </label>
       <textarea
         ref="textarea"
         :value="modelValue"
         @input="handleInput"
         @keydown="handleKeydown"
-        placeholder="Add a note about this score..."
-        class="w-full min-h-[100px] bg-[--color-bg-secondary] border border-[--color-border] rounded-lg p-4 text-base leading-relaxed text-[--color-text-primary] placeholder:text-[--color-text-muted] resize-none outline-none focus:border-[--color-border-light] transition-colors"
+        placeholder="Добавьте описание партитуры..."
+        class="w-full min-h-[100px] bg-zinc-950 border border-amber-900/20 rounded p-6 text-base leading-relaxed text-gray-300 placeholder:text-gray-700 resize-none outline-none focus:border-amber-800/40 transition-colors"
       ></textarea>
     </div>
   </div>

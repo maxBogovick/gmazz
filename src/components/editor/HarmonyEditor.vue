@@ -42,20 +42,24 @@ function handleKeydown(event: KeyboardEvent) {
 </script>
 
 <template>
-  <div class="w-full">
-    <label class="block text-xs font-medium text-[--color-text-muted] uppercase tracking-wider mb-3">
-      Chord progression
-    </label>
-    <textarea
-      ref="textarea"
-      :value="modelValue"
-      @input="handleInput"
-      @keydown="handleKeydown"
-      placeholder="Cmaj7  |  Dm7  |  G7  |  Cmaj7"
-      class="w-full min-h-[200px] bg-[--color-bg-secondary] border border-[--color-border] rounded-lg p-4 text-sm leading-relaxed text-[--color-text-primary] font-[--font-mono] placeholder:text-[--color-text-muted] resize-none outline-none focus:border-[--color-border-light] transition-colors whitespace-pre"
-    ></textarea>
-    <p class="text-xs text-[--color-text-muted] mt-2">
-      Press Tab to align chords
-    </p>
+  <div class="w-full space-y-6">
+    <div>
+      <label class="block text-[10px] uppercase tracking-[0.2em] text-amber-700 mb-4 font-sans">
+        Гармоническая Последовательность
+      </label>
+      <div class="bg-zinc-950 border border-amber-900/20 p-6 rounded">
+        <textarea
+          ref="textarea"
+          :value="modelValue"
+          @input="handleInput"
+          @keydown="handleKeydown"
+          placeholder="Cmaj7  |  Dm7  |  G7  |  Cmaj7"
+          class="w-full min-h-[200px] bg-transparent border-none p-0 text-lg leading-loose text-amber-400 font-mono placeholder:text-gray-700 resize-none outline-none focus:ring-0 whitespace-pre"
+        ></textarea>
+      </div>
+      <p class="text-[10px] text-gray-600 mt-3 font-sans uppercase tracking-wider">
+        Tab для выравнивания аккордов
+      </p>
+    </div>
   </div>
 </template>
