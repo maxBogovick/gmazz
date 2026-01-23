@@ -153,7 +153,7 @@ function handleKeydown(event: KeyboardEvent) {
             <span class="text-sm text-[#A67C00] font-mono">{{ fileName }}</span>
             <button
               @click="clearFile"
-              class="text-xs text-[#8B7E6A] hover:text-[#A67C00] transition-colors font-sans uppercase tracking-wider"
+              class="text-xs text-[#4A3F2F] hover:text-[#A67C00] transition-colors font-sans uppercase tracking-wider"
             >
               Удалить
             </button>
@@ -168,12 +168,12 @@ function handleKeydown(event: KeyboardEvent) {
             </svg>
           </div>
           <div class="text-center">
-            <p class="text-base text-[#3D3428]">{{ fileName }}</p>
-            <p class="text-xs text-[#8B7E6A] font-sans uppercase tracking-wider mt-1">PDF документ</p>
+            <p class="text-base text-[#1A1510]">{{ fileName }}</p>
+            <p class="text-xs text-[#4A3F2F] font-sans uppercase tracking-wider mt-1">PDF документ</p>
           </div>
           <button
             @click="clearFile"
-            class="text-xs text-[#8B7E6A] hover:text-[#A67C00] transition-colors font-sans uppercase tracking-wider"
+            class="text-xs text-[#4A3F2F] hover:text-[#A67C00] transition-colors font-sans uppercase tracking-wider"
           >
             Удалить
           </button>
@@ -182,8 +182,8 @@ function handleKeydown(event: KeyboardEvent) {
         <!-- Empty State -->
         <div v-else class="flex flex-col items-center justify-center py-10 text-center">
           <div class="text-5xl text-[#A67C00]/40 mb-4">𝄞</div>
-          <p class="text-[#3D3428] text-lg mb-2">Нажмите или перетащите файл</p>
-          <p class="text-xs text-[#8B7E6A] font-sans uppercase tracking-wider">PNG, JPG, или PDF</p>
+          <p class="text-[#1A1510] text-lg mb-2">Нажмите или перетащите файл</p>
+          <p class="text-xs text-[#4A3F2F] font-sans uppercase tracking-wider">PNG, JPG, или PDF</p>
         </div>
       </div>
     </div>
@@ -199,7 +199,7 @@ function handleKeydown(event: KeyboardEvent) {
         @input="handleInput"
         @keydown="handleKeydown"
         placeholder="Добавьте описание партитуры..."
-        class="w-full min-h-[100px] bg-white border border-[#D4CAB5] rounded-lg p-6 text-base leading-relaxed text-[#3D3428] placeholder:text-[#A89F8B] resize-none outline-none focus:border-[#A67C00]/50 transition-colors"
+        class="w-full min-h-[100px] bg-white border border-[#D4CAB5] rounded-lg p-6 text-base leading-relaxed text-[#1A1510] placeholder:text-[#8B7E6A] resize-none outline-none focus:border-[#A67C00]/50 transition-colors"
       ></textarea>
     </div>
   </div>

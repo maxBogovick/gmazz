@@ -47,6 +47,14 @@ pub struct NoteMetadata {
     pub file_path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub comment: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub chord_symbol: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub key: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub voice_leading: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tags: Option<Vec<String>>,
 }
 
 impl Default for NoteMetadata {
@@ -57,6 +65,10 @@ impl Default for NoteMetadata {
             mood: None,
             file_path: None,
             comment: None,
+            chord_symbol: None,
+            key: None,
+            voice_leading: None,
+            tags: None,
         }
     }
 }

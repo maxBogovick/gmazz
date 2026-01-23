@@ -152,8 +152,9 @@ export const useNotesStore = defineStore('notes', () => {
     }
   }
 
-  function setFilter(noteType?: NoteType, year?: number) {
+  async function setFilter(noteType?: NoteType, year?: number) {
     filter.value = { note_type: noteType, year };
+    await fetchNotes({ note_type: noteType, year });
   }
 
   function clearFilter() {

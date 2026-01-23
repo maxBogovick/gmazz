@@ -52,12 +52,12 @@ function handleKeydown(event: KeyboardEvent) {
             @input="handleInputSignature"
             @keydown="handleKeydown"
             placeholder="7/4"
-            class="w-24 bg-transparent border-none text-center text-5xl font-mono font-light text-[#A67C00] placeholder:text-[#A89F8B] outline-none focus:ring-0"
+            class="w-24 bg-transparent border-none text-center text-5xl font-mono font-light text-[#A67C00] placeholder:text-[#8B7E6A] outline-none focus:ring-0"
           />
         </div>
-        <div class="text-[#8B7E6A] text-sm font-sans">
+        <div class="text-[#4A3F2F] text-sm font-sans">
           <p class="mb-1">Например:</p>
-          <p class="text-xs text-[#A89F8B]">5/4, 7/8, 11/8, 6/4</p>
+          <p class="text-xs text-[#6B5D4D]">5/4, 7/8, 11/8, 6/4</p>
         </div>
       </div>
     </div>
@@ -72,7 +72,7 @@ function handleKeydown(event: KeyboardEvent) {
         @input="handleInputContent"
         @keydown="handleKeydown"
         placeholder="Опишите характер этого ритма..."
-        class="w-full min-h-[150px] bg-white border border-[#D4CAB5] rounded-lg p-6 text-lg leading-relaxed text-[#3D3428] font-serif italic placeholder:text-[#A89F8B] placeholder:not-italic resize-none outline-none focus:border-[#A67C00]/50 transition-colors"
+        class="w-full min-h-[150px] bg-white border border-[#D4CAB5] rounded-lg p-6 text-lg leading-relaxed text-[#1A1510] font-serif italic placeholder:text-[#8B7E6A] placeholder:not-italic resize-none outline-none focus:border-[#A67C00]/50 transition-colors"
       ></textarea>
     </div>
   </div>

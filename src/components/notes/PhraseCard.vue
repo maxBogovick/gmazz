@@ -63,7 +63,7 @@ function togglePlay(event: Event) {
       <!-- No Audio Placeholder -->
       <div v-else class="text-center">
         <div class="text-4xl text-[#A67C00]/40 mb-2">♫</div>
-        <div class="text-xs text-[#8B7E6A] font-sans uppercase tracking-wider">Audio Phrase</div>
+        <div class="text-xs text-[#4A3F2F] font-sans uppercase tracking-wider">Audio Phrase</div>
       </div>
 
       <!-- Waveform Visual -->
@@ -80,7 +80,7 @@ function togglePlay(event: Event) {
 
     <!-- Comment -->
     <div v-if="note.content" class="mt-4 pt-3 border-t border-[#E0D9C8]">
-      <p class="text-sm text-[#5C5245] font-light line-clamp-2">
+      <p class="text-sm text-[#2C2416] font-light line-clamp-2">
         {{ note.content }}
       </p>
     </div>

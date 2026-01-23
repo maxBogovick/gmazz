@@ -238,7 +238,7 @@ function handleKeydown(event: KeyboardEvent) {
 
           <button
             @click="clearRecording"
-            class="text-xs text-[#8B7E6A] hover:text-[#A67C00] transition-colors font-sans uppercase tracking-wider"
+            class="text-xs text-[#4A3F2F] hover:text-[#A67C00] transition-colors font-sans uppercase tracking-wider"
           >
             Очистить и записать новое
           </button>
@@ -261,8 +261,8 @@ function handleKeydown(event: KeyboardEvent) {
           </button>
 
           <div v-if="!isRecording" class="text-center space-y-2">
-            <p class="text-[#3D3428] text-lg">Нажмите для записи</p>
-            <p class="text-[#8B7E6A] text-xs font-sans uppercase tracking-wider">или перетащите аудио файл</p>
+            <p class="text-[#1A1510] text-lg">Нажмите для записи</p>
+            <p class="text-[#4A3F2F] text-xs font-sans uppercase tracking-wider">или перетащите аудио файл</p>
           </div>
           <div v-else class="text-center">
             <p class="text-red-600 font-mono text-sm uppercase tracking-wider">Идёт запись...</p>
@@ -282,7 +282,7 @@ function handleKeydown(event: KeyboardEvent) {
         @input="handleInput"
         @keydown="handleKeydown"
         placeholder="Опишите настроение, тональность или контекст..."
-        class="w-full min-h-[120px] bg-white border border-[#D4CAB5] rounded-lg p-6 text-base leading-relaxed text-[#3D3428] font-serif italic placeholder:text-[#A89F8B] placeholder:not-italic resize-none outline-none focus:border-[#A67C00]/50 transition-colors"
+        class="w-full min-h-[120px] bg-white border border-[#D4CAB5] rounded-lg p-6 text-base leading-relaxed text-[#1A1510] font-serif italic placeholder:text-[#8B7E6A] placeholder:not-italic resize-none outline-none focus:border-[#A67C00]/50 transition-colors"
       ></textarea>
     </div>
   </div>

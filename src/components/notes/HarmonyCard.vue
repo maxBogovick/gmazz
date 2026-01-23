@@ -10,17 +10,17 @@ defineProps<{
   <div class="h-full flex flex-col">
     <!-- Chord Symbol -->
     <div v-if="note.metadata?.chord_symbol" class="mb-4">
-      <div class="text-4xl font-mono text-[#8B5A2B] tracking-wide">
+      <div class="text-4xl font-mono text-[#6B4423] tracking-wide">
         {{ note.metadata.chord_symbol }}
       </div>
-      <div v-if="note.metadata?.key" class="text-xs text-[#8B7E6A] mt-1 font-sans uppercase tracking-wider">
+      <div v-if="note.metadata?.key" class="text-xs text-[#4A3F2F] mt-1 font-sans uppercase tracking-wider">
         Key of {{ note.metadata.key }}
       </div>
     </div>
 
     <!-- Voicing/Content -->
     <div class="flex-1">
-      <pre class="font-mono text-sm text-[#5C5245] whitespace-pre-wrap leading-relaxed line-clamp-5">{{ note.content }}</pre>
+      <pre class="font-mono text-sm text-[#2C2416] whitespace-pre-wrap leading-relaxed line-clamp-5">{{ note.content }}</pre>
     </div>
 
     <!-- Voice Leading indicator -->

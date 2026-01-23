@@ -19,6 +19,11 @@ const routes = [
     name: 'create',
     component: CreateNote,
   },
+  {
+    path: '/edit/:id',
+    name: 'edit',
+    component: CreateNote,
+  },
 ];
 
 const router = createRouter({

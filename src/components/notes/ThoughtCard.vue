@@ -10,7 +10,7 @@ defineProps<{
   <div class="h-full flex flex-col">
     <!-- Thought content -->
     <div class="flex-1">
-      <p class="text-[#3D3428] font-serif text-base leading-relaxed italic line-clamp-6">
+      <p class="text-[#1A1510] font-serif text-base leading-relaxed italic line-clamp-6">
         "{{ note.content }}"
       </p>
     </div>

@@ -63,6 +63,11 @@ function goBack() {
   router.push({ name: 'feed' });
 }
 
+function handleEdit() {
+  if (!note.value) return;
+  router.push({ name: 'edit', params: { id: note.value.id } });
+}
+
 function togglePlay() {
   if (!audio.value) return;
 
@@ -104,7 +109,7 @@ function formatDate(dateStr: string): string {
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#FAF7F2] text-[#3D3428] font-serif overflow-x-hidden">
+  <div class="min-h-screen bg-[#FAF7F2] text-[#1A1510] font-serif overflow-x-hidden">
 
     <!-- Header -->
     <header
@@ -114,7 +119,7 @@ function formatDate(dateStr: string): string {
       <div class="max-w-5xl mx-auto px-6 lg:px-12 h-20 flex items-center justify-between pointer-events-none">
         <button
             @click="goBack"
-            class="flex items-center gap-3 text-sm text-[#8B7E6A] hover:text-[#A67C00] transition-colors duration-300 pointer-events-auto group"
+            class="flex items-center gap-3 text-sm text-[#4A3F2F] hover:text-[#A67C00] transition-colors duration-300 pointer-events-auto group"
         >
           <span class="text-xl group-hover:-translate-x-1 transition-transform">←</span>
           <span class="font-light">Вернуться в Архив</span>
@@ -123,15 +128,23 @@ function formatDate(dateStr: string): string {
         <div class="flex items-center gap-6 pointer-events-auto">
           <button
               v-if="note"
+              @click="handleEdit"
+              class="text-[10px] uppercase tracking-[0.25em] text-[#A67C00] hover:text-[#B8860B] transition-colors font-sans"
+          >
+            Редактировать
+          </button>
+
+          <button
+              v-if="note"
               @click="handleDelete"
-              class="text-[10px] uppercase tracking-[0.25em] text-[#8B7E6A] hover:text-red-600 transition-colors font-sans"
+              class="text-[10px] uppercase tracking-[0.25em] text-[#4A3F2F] hover:text-red-600 transition-colors font-sans"
           >
             Удалить
           </button>
 
-          <div class="hidden md:flex items-center gap-2 text-xs text-[#8B7E6A] font-sans">
-            <kbd class="px-2 py-1 bg-[#F5F1E8] border border-[#D4CAB5] rounded text-[10px] text-[#8B7E6A] tracking-wider">ESC</kbd>
-            <span class="text-[#A89F8B]">для выхода</span>
+          <div class="hidden md:flex items-center gap-2 text-xs text-[#4A3F2F] font-sans">
+            <kbd class="px-2 py-1 bg-[#F5F1E8] border border-[#D4CAB5] rounded text-[10px] text-[#4A3F2F] tracking-wider">ESC</kbd>
+            <span class="text-[#6B5D4D]">для выхода</span>
           </div>
         </div>
       </div>
@@ -166,10 +179,10 @@ function formatDate(dateStr: string): string {
               <div class="text-5xl text-[#A67C00]/60">
                 {{ typeInfo[note.note_type]?.icon }}
               </div>
-              <h1 class="text-4xl lg:text-5xl font-light tracking-tight text-[#3D3428]">
+              <h1 class="text-4xl lg:text-5xl font-light tracking-tight text-[#1A1510]">
                 {{ typeInfo[note.note_type]?.labelRu }}
               </h1>
-              <p class="text-lg text-[#8B7E6A] font-light">
+              <p class="text-lg text-[#4A3F2F] font-light">
                 {{ formatDate(note.created_at) }}
               </p>
             </div>
@@ -194,7 +207,7 @@ function formatDate(dateStr: string): string {
                   <template v-if="note.note_type === 'thought'">
                     <div class="max-w-2xl mx-auto space-y-8">
                       <div class="w-16 h-1 bg-[#A67C00]/40 mx-auto"></div>
-                      <div class="text-xl lg:text-2xl leading-relaxed text-[#3D3428] whitespace-pre-line text-center font-light">
+                      <div class="text-xl lg:text-2xl leading-relaxed text-[#1A1510] whitespace-pre-line text-center font-light">
                         {{ note.content }}
                       </div>
                       <div class="flex justify-center pt-6">
@@ -213,7 +226,7 @@ function formatDate(dateStr: string): string {
                       </div>
 
                       <div class="bg-[#F5F1E8] border border-[#D4CAB5] rounded-lg p-8 overflow-x-auto custom-scrollbar">
-                        <pre class="font-mono text-base lg:text-lg text-[#8B5A2B] whitespace-pre-wrap leading-loose">{{ note.content }}</pre>
+                        <pre class="font-mono text-base lg:text-lg text-[#6B4423] whitespace-pre-wrap leading-loose">{{ note.content }}</pre>
                       </div>
                     </div>
                   </template>
@@ -249,7 +262,7 @@ function formatDate(dateStr: string): string {
                         </div>
 
                         <div class="text-center">
-                          <div class="text-xs uppercase tracking-widest text-[#8B7E6A] font-sans">
+                          <div class="text-xs uppercase tracking-widest text-[#4A3F2F] font-sans">
                             {{ isPlaying ? 'Воспроизведение...' : 'Готов к воспроизведению' }}
                           </div>
                         </div>
@@ -257,7 +270,7 @@ function formatDate(dateStr: string): string {
 
                       <!-- Annotation -->
                       <div v-if="note.metadata.comment || note.content" class="border-l-2 border-[#A67C00]/40 pl-8">
-                        <p class="text-lg lg:text-xl text-[#5C5245] italic leading-relaxed">
+                        <p class="text-lg lg:text-xl text-[#2C2416] italic leading-relaxed">
                           "{{ note.metadata.comment || note.content }}"
                         </p>
                       </div>
@@ -282,7 +295,7 @@ function formatDate(dateStr: string): string {
                               {{ note.metadata.time_signature?.split('/')[0] || '4' }}
                             </span>
                             <div class="w-12 h-px bg-[#D4CAB5] my-2"></div>
-                            <span class="text-5xl font-light text-[#5C5245] leading-none">
+                            <span class="text-5xl font-light text-[#2C2416] leading-none">
                               {{ note.metadata.time_signature?.split('/')[1] || '4' }}
                             </span>
                           </div>
@@ -297,10 +310,10 @@ function formatDate(dateStr: string): string {
 
                       <!-- Pattern -->
                       <div class="bg-[#F5F1E8] border border-[#D4CAB5] rounded-lg p-8 text-center">
-                        <div class="text-xs uppercase tracking-widest text-[#8B7E6A] mb-4 font-sans">
+                        <div class="text-xs uppercase tracking-widest text-[#4A3F2F] mb-4 font-sans">
                           Groove Pattern
                         </div>
-                        <div class="font-mono text-xl lg:text-2xl text-[#3D3428] tracking-wider">
+                        <div class="font-mono text-xl lg:text-2xl text-[#1A1510] tracking-wider">
                           {{ note.content }}
                         </div>
                       </div>
@@ -328,15 +341,15 @@ function formatDate(dateStr: string): string {
                               :style="{ transform: `scale(${imageScale})` }"
                               class="max-w-full shadow-lg transition-transform duration-300 ease-out origin-center"
                           />
-                          <div v-else class="h-64 flex items-center justify-center text-[#8B7E6A] font-sans">
+                          <div v-else class="h-64 flex items-center justify-center text-[#4A3F2F] font-sans">
                             <div class="animate-pulse">Загрузка партитуры...</div>
                           </div>
                         </div>
                       </div>
 
                       <!-- Score Info -->
-                      <div class="flex justify-between items-center text-[10px] uppercase tracking-wider text-[#8B7E6A] font-sans px-2">
-                        <span class="text-[#5C5245]">{{ note.content }}</span>
+                      <div class="flex justify-between items-center text-[10px] uppercase tracking-wider text-[#4A3F2F] font-sans px-2">
+                        <span class="text-[#2C2416]">{{ note.content }}</span>
                         <span class="text-[#A67C00]">Ctrl + Scroll для масштабирования</span>
                       </div>
                     </div>
@@ -345,7 +358,7 @@ function formatDate(dateStr: string): string {
 
                 <!-- Signature Stamp -->
                 <div class="px-8 lg:px-12 pb-8">
-                  <div class="pt-8 border-t border-[#E0D9C8] flex justify-between items-center text-[10px] uppercase tracking-[0.25em] text-[#8B7E6A] font-sans">
+                  <div class="pt-8 border-t border-[#E0D9C8] flex justify-between items-center text-[10px] uppercase tracking-[0.25em] text-[#4A3F2F] font-sans">
                     <span>Архив Gmazz</span>
                     <span class="text-[#A67C00]">{{ new Date(note.created_at).getFullYear() }}</span>
                   </div>
@@ -359,7 +372,7 @@ function formatDate(dateStr: string): string {
         <!-- Loading State -->
         <div v-else class="min-h-[60vh] flex flex-col items-center justify-center space-y-6">
           <div class="text-5xl text-[#A67C00]/50 animate-pulse">𝄞</div>
-          <p class="text-sm uppercase tracking-[0.3em] text-[#8B7E6A] font-sans">
+          <p class="text-sm uppercase tracking-[0.3em] text-[#4A3F2F] font-sans">
             Извлечение из архива...
           </p>
         </div>

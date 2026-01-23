@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useNotesStore } from '../store/notes';
 import { uploadFile } from '../api/notes';
@@ -14,6 +14,8 @@ const route = useRoute();
 const router = useRouter();
 const store = useNotesStore();
 
+const editingNoteId = ref<string | null>(null);
+const isEditMode = computed(() => !!editingNoteId.value);
 const selectedType = ref<NoteType | null>((route.query.type as NoteType) || null);
 const content = ref('');
 const metadata = ref<NoteMetadata>({});
@@ -29,8 +31,20 @@ const noteTypes: { type: NoteType; label: string; labelRu: string; description: 
   { type: 'thought', label: 'Personal Note', labelRu: 'Заметка', description: 'Размышления о музыке', icon: '✍' },
 ];
 
-onMounted(() => {
+onMounted(async () => {
   document.addEventListener('keydown', handleGlobalKeydown);
+
+  // Check if editing an existing note
+  const id = route.params.id as string;
+  if (id) {
+    editingNoteId.value = id;
+    await store.fetchNote(id);
+    if (store.currentNote) {
+      selectedType.value = store.currentNote.note_type;
+      content.value = store.currentNote.content;
+      metadata.value = store.currentNote.metadata || {};
+    }
+  }
 });
 
 onUnmounted(() => {
@@ -86,7 +100,11 @@ function selectType(type: NoteType) {
 }
 
 function goBack() {
-  router.push({ name: 'feed' });
+  if (editingNoteId.value) {
+    router.push({ name: 'note', params: { id: editingNoteId.value } });
+  } else {
+    router.push({ name: 'feed' });
+  }
 }
 
 async function handleFilePath(fileName: string, fileData: number[]) {
@@ -110,11 +128,20 @@ async function saveNote() {
       pendingFileData.value = null;
     }
 
-    await store.createNote({
-      note_type: selectedType.value,
-      content: content.value,
-      metadata: metadata.value,
-    });
+    if (editingNoteId.value) {
+      // Update existing note
+      await store.updateNote(editingNoteId.value, {
+        content: content.value,
+        metadata: metadata.value,
+      });
+    } else {
+      // Create new note
+      await store.createNote({
+        note_type: selectedType.value,
+        content: content.value,
+        metadata: metadata.value,
+      });
+    }
 
     saveStatus.value = 'saved';
 
@@ -141,7 +168,7 @@ function getSelectedTypeInfo() {
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#FAF7F2] text-[#3D3428] font-serif overflow-x-hidden">
+  <div class="min-h-screen bg-[#FAF7F2] text-[#1A1510] font-serif overflow-x-hidden">
 
     <!-- Header -->
     <header
@@ -150,11 +177,11 @@ function getSelectedTypeInfo() {
     >
       <div class="max-w-5xl mx-auto px-6 lg:px-12 h-20 flex items-center justify-between pointer-events-none">
         <button
-          @click="selectedType ? (selectedType = null) : goBack()"
-          class="flex items-center gap-3 text-sm text-[#8B7E6A] hover:text-[#A67C00] transition-colors duration-300 pointer-events-auto group"
+          @click="isEditMode ? goBack() : (selectedType ? (selectedType = null) : goBack())"
+          class="flex items-center gap-3 text-sm text-[#4A3F2F] hover:text-[#A67C00] transition-colors duration-300 pointer-events-auto group"
         >
           <span class="text-xl group-hover:-translate-x-1 transition-transform">←</span>
-          <span class="font-light">{{ selectedType ? 'К выбору категории' : 'Вернуться в Архив' }}</span>
+          <span class="font-light">{{ isEditMode ? 'Назад к записи' : (selectedType ? 'К выбору категории' : 'Вернуться в Архив') }}</span>
         </button>
 
         <div class="flex items-center gap-6 pointer-events-auto">
@@ -168,7 +195,7 @@ function getSelectedTypeInfo() {
                 'bg-[#E0D9C8]': saveStatus === 'idle'
               }"
             ></div>
-            <span v-if="saveStatus === 'saving'" class="text-[10px] text-[#8B7E6A] uppercase tracking-widest font-sans">
+            <span v-if="saveStatus === 'saving'" class="text-[10px] text-[#4A3F2F] uppercase tracking-widest font-sans">
               Сохранение...
             </span>
             <span v-else-if="saveStatus === 'saved'" class="text-[10px] text-[#A67C00] uppercase tracking-widest font-sans">
@@ -201,10 +228,10 @@ function getSelectedTypeInfo() {
             <div class="h-px w-12 bg-gradient-to-l from-transparent to-[#D4CAB5]"></div>
           </div>
 
-          <h1 class="text-4xl lg:text-5xl font-light mb-4 text-[#3D3428]">
+          <h1 class="text-4xl lg:text-5xl font-light mb-4 text-[#1A1510]">
             Добавить в <span class="text-[#A67C00]">Архив</span>
           </h1>
-          <p class="text-[#8B7E6A] font-light text-lg max-w-xl mx-auto">
+          <p class="text-[#4A3F2F] font-light text-lg max-w-xl mx-auto">
             Выберите категорию для новой записи
           </p>
         </div>
@@ -231,13 +258,13 @@ function getSelectedTypeInfo() {
                 </div>
 
                 <!-- Labels -->
-                <h3 class="text-xl font-light text-[#3D3428] mb-1 group-hover:text-[#A67C00] transition-colors">
+                <h3 class="text-xl font-light text-[#1A1510] mb-1 group-hover:text-[#A67C00] transition-colors">
                   {{ labelRu }}
                 </h3>
-                <div class="text-[10px] uppercase tracking-[0.2em] text-[#A89F8B] mb-3 font-sans">
+                <div class="text-[10px] uppercase tracking-[0.2em] text-[#6B5D4D] mb-3 font-sans">
                   {{ label }}
                 </div>
-                <p class="text-xs text-[#8B7E6A] group-hover:text-[#5C5245] transition-colors">
+                <p class="text-xs text-[#4A3F2F] group-hover:text-[#2C2416] transition-colors">
                   {{ description }}
                 </p>
               </div>
@@ -247,8 +274,8 @@ function getSelectedTypeInfo() {
 
         <!-- Keyboard Hint -->
         <div class="text-center mt-12">
-          <div class="inline-flex items-center gap-3 text-[10px] text-[#A89F8B] font-sans">
-            <kbd class="px-2 py-1 bg-[#F5F1E8] border border-[#D4CAB5] rounded text-[#8B7E6A] tracking-wider">ESC</kbd>
+          <div class="inline-flex items-center gap-3 text-[10px] text-[#6B5D4D] font-sans">
+            <kbd class="px-2 py-1 bg-[#F5F1E8] border border-[#D4CAB5] rounded text-[#4A3F2F] tracking-wider">ESC</kbd>
             <span>для возврата</span>
           </div>
         </div>
@@ -270,8 +297,8 @@ function getSelectedTypeInfo() {
             <div class="text-4xl text-[#A67C00]/60 mb-4">
               {{ getSelectedTypeInfo()?.icon }}
             </div>
-            <h2 class="text-3xl lg:text-4xl font-light text-[#3D3428]">
-              Новая {{ getSelectedTypeInfo()?.labelRu }}
+            <h2 class="text-3xl lg:text-4xl font-light text-[#1A1510]">
+              {{ isEditMode ? 'Редактирование' : 'Новая' }} {{ getSelectedTypeInfo()?.labelRu }}
             </h2>
           </div>
         </div>
@@ -303,7 +330,7 @@ function getSelectedTypeInfo() {
 
             <!-- Footer -->
             <div class="px-8 lg:px-12 pb-6">
-              <div class="pt-6 border-t border-[#E0D9C8] flex justify-between items-center text-[10px] uppercase tracking-[0.2em] text-[#A89F8B] font-sans">
+              <div class="pt-6 border-t border-[#E0D9C8] flex justify-between items-center text-[10px] uppercase tracking-[0.2em] text-[#6B5D4D] font-sans">
                 <span>Архив Gmazz</span>
                 <div class="flex items-center gap-4">
                   <span class="hidden sm:inline">Cmd+S для сохранения</span>

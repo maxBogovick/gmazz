@@ -15,17 +15,17 @@ defineProps<{
         class="text-center"
       >
         <!-- Time Signature -->
-        <div class="text-6xl font-mono font-light text-[#8B5A2B] tracking-wider mb-2">
+        <div class="text-6xl font-mono font-light text-[#6B4423] tracking-wider mb-2">
           {{ note.metadata.time_signature }}
         </div>
-        <div class="text-[10px] uppercase tracking-[0.2em] text-[#8B7E6A] font-sans">
+        <div class="text-[10px] uppercase tracking-[0.2em] text-[#4A3F2F] font-sans">
           Time Signature
         </div>
       </div>
 
       <div v-else class="text-center">
         <div class="text-5xl text-[#A67C00]/40 mb-2">𝅘𝅥𝅮</div>
-        <div class="text-xs text-[#8B7E6A] font-sans uppercase tracking-wider">
+        <div class="text-xs text-[#4A3F2F] font-sans uppercase tracking-wider">
           Rhythm Pattern
         </div>
       </div>
@@ -33,7 +33,7 @@ defineProps<{
 
     <!-- Feel/Description -->
     <div v-if="note.content" class="mt-4 pt-4 border-t border-[#E0D9C8]">
-      <p class="text-sm text-[#5C5245] font-serif italic text-center line-clamp-3">
+      <p class="text-sm text-[#2C2416] font-serif italic text-center line-clamp-3">
         {{ note.content }}
       </p>
     </div>

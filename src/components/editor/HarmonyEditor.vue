@@ -54,10 +54,10 @@ function handleKeydown(event: KeyboardEvent) {
           @input="handleInput"
           @keydown="handleKeydown"
           placeholder="Cmaj7  |  Dm7  |  G7  |  Cmaj7"
-          class="w-full min-h-[200px] bg-transparent border-none p-0 text-lg leading-loose text-[#A67C00] font-mono placeholder:text-[#A89F8B] resize-none outline-none focus:ring-0 whitespace-pre"
+          class="w-full min-h-[200px] bg-transparent border-none p-0 text-lg leading-loose text-[#A67C00] font-mono placeholder:text-[#8B7E6A] resize-none outline-none focus:ring-0 whitespace-pre"
         ></textarea>
       </div>
-      <p class="text-[10px] text-[#8B7E6A] mt-3 font-sans uppercase tracking-wider">
+      <p class="text-[10px] text-[#4A3F2F] mt-3 font-sans uppercase tracking-wider">
         Tab для выравнивания аккордов
       </p>
     </div>

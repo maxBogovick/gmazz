@@ -6,6 +6,10 @@ export interface NoteMetadata {
   mood?: string;
   file_path?: string;
   comment?: string;
+  chord_symbol?: string;
+  key?: string;
+  voice_leading?: boolean;
+  tags?: string[];
 }
 
 export interface Note {

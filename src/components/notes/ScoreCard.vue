@@ -28,7 +28,7 @@ onMounted(async () => {
       />
       <div v-else class="text-center p-4">
         <div class="text-5xl text-[#A67C00]/40 mb-2">𝄞</div>
-        <div class="text-xs text-[#8B7E6A] font-sans uppercase tracking-wider">
+        <div class="text-xs text-[#4A3F2F] font-sans uppercase tracking-wider">
           {{ note.metadata.file_path || 'Score' }}
         </div>
       </div>
@@ -36,7 +36,7 @@ onMounted(async () => {
 
     <!-- Caption -->
     <div v-if="note.content" class="mt-4">
-      <p class="text-sm text-[#5C5245] font-light line-clamp-2">
+      <p class="text-sm text-[#2C2416] font-light line-clamp-2">
         {{ note.content }}
       </p>
     </div>

@@ -53,7 +53,7 @@ watch(() => textarea.value, () => {
       @input="handleInput"
       @keydown="handleKeydown"
       placeholder="Начните писать..."
-      class="w-full min-h-[250px] bg-transparent border-none p-0 text-xl lg:text-2xl leading-relaxed text-[#3D3428] font-serif italic placeholder:text-[#A89F8B] placeholder:not-italic resize-none outline-none focus:ring-0"
+      class="w-full min-h-[250px] bg-transparent border-none p-0 text-xl lg:text-2xl leading-relaxed text-[#1A1510] font-serif italic placeholder:text-[#8B7E6A] placeholder:not-italic resize-none outline-none focus:ring-0"
     ></textarea>
   </div>
 </template>

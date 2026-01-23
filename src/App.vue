@@ -28,13 +28,8 @@ function handleGlobalHotkeys(event: KeyboardEvent) {
     router.push({ name: 'create' });
   }
 
-  // Esc -> Back / Cancel
-  if (event.key === 'Escape') {
-    // Logic for back navigation if not already in feed
-    if (router.currentRoute.value.name !== 'feed') {
-      router.push({ name: 'feed' });
-    }
-  }
+  // Note: Escape is handled by individual views (CreateNote, SingleNote)
+  // for more nuanced behavior (save before exit, etc.)
 
   // Cmd + S -> Global Save Trigger
   if (isMod && event.key === 's') {
@@ -46,7 +41,6 @@ function handleGlobalHotkeys(event: KeyboardEvent) {
 </script>
 
 <template>
-  <div class="jazz-texture"></div>
   <RouterView v-slot="{ Component }">
     <Transition name="fade" mode="out-in">
       <component :is="Component" />
