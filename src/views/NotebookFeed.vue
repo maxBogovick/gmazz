@@ -1,94 +1,63 @@
 <script setup lang="ts">
-import { onMounted, ref, computed, onUnmounted } from 'vue';
+import { onMounted, ref, computed, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useNotesStore } from '../store/notes';
 import type { Note, NoteType } from '../types';
-import ThoughtCard from '../components/notes/ThoughtCard.vue';
-import HarmonyCard from '../components/notes/HarmonyCard.vue';
-import PhraseCard from '../components/notes/PhraseCard.vue';
-import RhythmCard from '../components/notes/RhythmCard.vue';
-import ScoreCard from '../components/notes/ScoreCard.vue';
 
 const router = useRouter();
 const store = useNotesStore();
-const visibleNotes = ref<string[]>([]);
-const scrollY = ref(0);
 
-const collections = [
-  {
-    type: undefined as NoteType | undefined,
-    title: 'Полная Коллекция',
-    subtitle: 'Complete Works',
-    era: '1974—2026',
-    icon: '♪'
-  },
-  {
-    type: 'score' as NoteType,
-    title: 'Партитуры',
-    subtitle: 'Original Scores',
-    era: 'Manuscript Hall',
-    icon: '𝄞'
-  },
-  {
-    type: 'phrase' as NoteType,
-    title: 'Фразировка',
-    subtitle: 'Phrase Studies',
-    era: 'Recording Archive',
-    icon: '♫'
-  },
-  {
-    type: 'harmony' as NoteType,
-    title: 'Гармония',
-    subtitle: 'Harmonic Analysis',
-    era: 'Theory Cabinet',
-    icon: '♯'
-  },
-  {
-    type: 'rhythm' as NoteType,
-    title: 'Ритмы',
-    subtitle: 'Rhythmic Patterns',
-    era: 'Metronome Room',
-    icon: '𝅘𝅥𝅮'
-  },
-  {
-    type: 'thought' as NoteType,
-    title: 'Заметки',
-    subtitle: 'Personal Reflections',
-    era: 'Private Journal',
-    icon: '✍'
-  },
-];
+const dialAngle = ref(0);
+const selectedIndex = ref(0);
+const isPlaying = ref(false);
+const signalStrength = ref(0);
+const volumeLevel = ref(0.7);
 
-const headerVisible = computed(() => scrollY.value > 200);
+const typeInfo: Record<NoteType, { freq: string; band: string; icon: string }> = {
+  thought: { freq: '88.1', band: 'FM', icon: '✎' },
+  harmony: { freq: '91.5', band: 'FM', icon: '♯' },
+  phrase: { freq: '95.3', band: 'FM', icon: '♪' },
+  rhythm: { freq: '101.7', band: 'FM', icon: '◎' },
+  score: { freq: '107.9', band: 'FM', icon: '𝄞' },
+};
+
+const currentNote = computed(() => store.filteredNotes[selectedIndex.value] || null);
+const currentFreq = computed(() => {
+  if (!currentNote.value) return '88.0';
+  const base = 88 + (selectedIndex.value * 0.2);
+  return base.toFixed(1);
+});
+
+watch(selectedIndex, () => {
+  // Animate signal search
+  signalStrength.value = 0;
+  const interval = setInterval(() => {
+    signalStrength.value += 0.1;
+    if (signalStrength.value >= 1) {
+      clearInterval(interval);
+      signalStrength.value = 1;
+    }
+  }, 50);
+});
 
 onMounted(async () => {
   await store.fetchNotes();
-  animateNotes();
-  window.addEventListener('scroll', handleScroll);
+  signalStrength.value = 1;
 });
 
-onUnmounted(() => {
-  window.removeEventListener('scroll', handleScroll);
-});
-
-async function openRandomNote() {
-  const note = await store.fetchRandomNote();
-  if (note) {
-    router.push({ name: 'note', params: { id: note.id } });
+function handleDialRotate(e: WheelEvent) {
+  e.preventDefault();
+  const delta = e.deltaY > 0 ? 1 : -1;
+  const newIndex = Math.max(0, Math.min(store.filteredNotes.length - 1, selectedIndex.value + delta));
+  if (newIndex !== selectedIndex.value) {
+    selectedIndex.value = newIndex;
+    dialAngle.value += delta * 15;
   }
 }
 
-function handleScroll() {
-  scrollY.value = window.scrollY;
-}
-
-function animateNotes() {
-  visibleNotes.value = [];
-  store.filteredNotes.forEach((note, index) => {
-    setTimeout(() => {
-      visibleNotes.value.push(note.id);
-    }, index * 80);
-  });
+function selectStation(index: number) {
+  selectedIndex.value = index;
+  dialAngle.value = index * 15;
 }
 
 function openNote(note: Note) {
@@ -99,461 +68,363 @@ function openCreate() {
   router.push({ name: 'create' });
 }
 
-async function setCollection(type: NoteType | undefined) {
-  visibleNotes.value = [];
-  await store.setFilter(type, store.filter.year);
-  setTimeout(animateNotes, 200);
+async function openRandomNote() {
+  const note = await store.fetchRandomNote();
+  if (note) {
+    router.push({ name: 'note', params: { id: note.id } });
+  }
 }
 
-async function setYear(year: number | undefined) {
-  visibleNotes.value = [];
-  await store.setFilter(store.filter.note_type, year);
-  setTimeout(animateNotes, 200);
+function formatDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  const months = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-const availableYears = computed(() => {
-  const years = new Set<number>();
-  store.notes.forEach(note => {
-    const year = new Date(note.created_at).getFullYear();
-    years.add(year);
-  });
-  return Array.from(years).sort((a, b) => b - a);
-});
-
-const selectedYear = computed(() => store.filter.year);
-
-function getCardComponent(type: NoteType) {
-  const components: Record<NoteType, any> = {
-    thought: ThoughtCard,
-    harmony: HarmonyCard,
-    phrase: PhraseCard,
-    rhythm: RhythmCard,
-    score: ScoreCard,
-  };
-  return components[type];
+function truncate(text: string, length: number): string {
+  if (text.length <= length) return text;
+  return text.slice(0, length) + '...';
 }
-
-const currentCollection = computed(() =>
-    collections.find(c => c.type === store.filter.note_type) || collections[0]
-);
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#FAF7F2] text-[#1A1510] font-serif overflow-x-hidden">
+  <div class="min-h-screen bg-gradient-to-b from-[#F5E6D3] via-[#E8D4BC] to-[#DCC5A8] overflow-hidden">
 
-    <!-- Floating Header -->
-    <header
-        class="fixed top-0 left-0 right-0 z-50 transition-all duration-700"
-        :class="headerVisible ? 'bg-[#FAF7F2]/95 backdrop-blur-md border-b border-[#D4CAB5] shadow-sm' : 'bg-transparent'"
-    >
-      <div class="max-w-7xl mx-auto px-6 lg:px-12 py-6 flex items-center justify-between">
+    <!-- Wooden Texture Overlay -->
+    <div class="fixed inset-0 pointer-events-none opacity-10"
+         style="background-image: url('data:image/svg+xml,%3Csvg width=&quot;100&quot; height=&quot;100&quot; viewBox=&quot;0 0 100 100&quot; xmlns=&quot;http://www.w3.org/2000/svg&quot;%3E%3Cpath d=&quot;M0 0h100v2H0zM0 20h100v1H0zM0 35h100v2H0zM0 55h100v1H0zM0 75h100v2H0zM0 90h100v1H0z&quot; fill=&quot;%238B4513&quot; fill-opacity=&quot;0.3&quot;/%3E%3C/svg%3E');">
+    </div>
 
-        <button @click="setCollection(undefined)" class="group flex items-baseline gap-3">
-          <span class="text-3xl font-light tracking-tight text-[#2C2416] group-hover:text-[#A67C00] transition-colors duration-300">
-            Gmazz
-          </span>
-          <span class="text-[9px] uppercase tracking-[0.25em] text-[#4A3F2F] font-sans mt-2">
-            Est. 1974
-          </span>
-        </button>
+    <!-- Header -->
+    <header class="relative z-10 px-8 py-6">
+      <div class="max-w-6xl mx-auto flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 rounded-full bg-gradient-to-br from-[#C9A227] to-[#8B6914] flex items-center justify-center shadow-lg">
+            <span class="text-white text-xl">𝄞</span>
+          </div>
+          <div>
+            <h1 class="text-2xl font-light text-[#5C4A36] tracking-wide">Gmazz Radio</h1>
+            <p class="text-xs text-[#8B7355] tracking-widest uppercase">Архив Маэстро • Est. 1974</p>
+          </div>
+        </div>
 
-        <button
+        <div class="flex items-center gap-4">
+          <button
+            @click="openRandomNote"
+            class="px-5 py-2.5 border-2 border-[#8B7355] text-[#5C4A36] hover:bg-[#8B7355] hover:text-white rounded-full text-sm transition-all"
+          >
+            Случайная волна
+          </button>
+          <button
             @click="openCreate"
-            class="px-5 py-2.5 bg-[#A67C00] text-white hover:bg-[#B8860B] text-xs uppercase tracking-widest font-sans transition-all duration-300 rounded"
-        >
-          Новая Запись
-        </button>
+            class="px-5 py-2.5 bg-[#C9A227] text-white hover:bg-[#B8860B] rounded-full text-sm shadow-lg transition-all"
+          >
+            + Новая запись
+          </button>
+        </div>
       </div>
     </header>
 
-    <!-- Hero Exhibition -->
-    <section class="relative min-h-[85vh] flex items-center justify-center overflow-hidden pt-20">
+    <!-- Main Radio Console -->
+    <main class="relative z-10 max-w-6xl mx-auto px-8 py-8">
 
-      <!-- Decorative Background -->
-      <div class="absolute inset-0">
-        <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-[#A67C00]/5 rounded-full blur-[120px]"></div>
-        <div class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#8B5A2B]/5 rounded-full blur-[120px]"></div>
-      </div>
+      <!-- The Radio Cabinet -->
+      <div class="bg-gradient-to-b from-[#8B5A2B] via-[#6B4423] to-[#5C3A1D] rounded-3xl p-8 shadow-2xl border-4 border-[#4A2C17]">
 
-      <!-- Staff Lines Decoration -->
-      <div class="absolute left-0 right-0 top-1/2 -translate-y-1/2 opacity-[0.06] pointer-events-none">
-        <div v-for="i in 5" :key="i" class="h-px bg-[#8B7E6A] mb-6"></div>
-      </div>
-
-      <div class="relative z-10 max-w-6xl mx-auto px-6 lg:px-12 text-center space-y-12">
-
-        <!-- Main Title -->
-        <div class="space-y-8">
-          <div class="inline-block px-6 py-2 border border-[#D4CAB5] text-[10px] uppercase tracking-[0.35em] text-[#A67C00] font-sans rounded">
-            Джазовый Аранжировщик • Композитор • Педагог
-          </div>
-
-          <h1 class="text-5xl sm:text-6xl lg:text-8xl xl:text-9xl font-light leading-[1.05] tracking-tight">
-            <span class="block text-[#2C2416]">Пятьдесят Лет</span>
-            <span class="block text-[#A67C00] mt-2">
-              в Джазе
-            </span>
-          </h1>
-
-          <div class="max-w-3xl mx-auto">
-            <p class="text-lg sm:text-xl lg:text-2xl text-[#4A3F2F] font-light leading-relaxed italic">
-              "Аранжировка — это искусство услышать то, чего ещё нет,<br class="hidden sm:block"/> и записать то, что невозможно объяснить словами"
-            </p>
+        <!-- Top Decorative Grille -->
+        <div class="h-4 bg-[#4A2C17] rounded-t-xl mb-6 relative overflow-hidden">
+          <div class="absolute inset-0 flex">
+            <div v-for="i in 40" :key="i" class="flex-1 border-r border-[#3D2415]"></div>
           </div>
         </div>
 
-        <!-- Stats -->
-        <div class="flex flex-wrap justify-center gap-10 lg:gap-20 pt-12">
-          <div class="text-center group">
-            <div class="text-4xl sm:text-5xl lg:text-6xl font-extralight text-[#A67C00] mb-3 group-hover:text-[#B8860B] transition-colors">51</div>
-            <div class="text-[10px] uppercase tracking-[0.2em] text-[#4A3F2F] font-sans">год творчества</div>
-          </div>
-          <div class="text-center group">
-            <div class="text-4xl sm:text-5xl lg:text-6xl font-extralight text-[#A67C00] mb-3 group-hover:text-[#B8860B] transition-colors">{{ store.notes.length || '—' }}</div>
-            <div class="text-[10px] uppercase tracking-[0.2em] text-[#4A3F2F] font-sans">работ в архиве</div>
-          </div>
-          <div class="text-center group">
-            <div class="text-4xl sm:text-5xl lg:text-6xl font-extralight text-[#A67C00] mb-3 group-hover:text-[#B8860B] transition-colors">∞</div>
-            <div class="text-[10px] uppercase tracking-[0.2em] text-[#4A3F2F] font-sans">вдохновения</div>
-          </div>
-        </div>
+        <!-- Display Section -->
+        <div class="grid grid-cols-3 gap-6 mb-8">
 
-        <!-- Quick Actions -->
-        <div class="pt-16 flex flex-col items-center gap-8">
-          <!-- Random Note Button -->
-          <button
-            @click="openRandomNote"
-            class="group flex items-center gap-3 px-6 py-3 border border-[#D4CAB5] rounded-full text-[#4A3F2F] hover:border-[#A67C00] hover:text-[#A67C00] transition-all duration-300"
-          >
-            <span class="text-sm font-light">Открыть случайную страницу</span>
-            <span class="text-lg group-hover:translate-x-1 transition-transform">→</span>
-          </button>
-
-          <!-- Scroll Indicator -->
-          <div class="animate-bounce">
-            <div class="flex flex-col items-center gap-3">
-              <span class="text-[9px] uppercase tracking-[0.3em] text-[#6B5D4D] font-sans">Исследовать архив</span>
-              <div class="w-px h-12 bg-gradient-to-b from-[#A67C00]/60 to-transparent"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Biography Section -->
-    <section class="relative py-24 lg:py-32 border-y border-[#E0D9C8] bg-[#F5F1E8]">
-      <div class="max-w-5xl mx-auto px-6 lg:px-12">
-        <div class="grid lg:grid-cols-2 gap-16 items-center">
-
-          <!-- Left: Quote/Image placeholder -->
-          <div class="relative">
-            <div class="aspect-[4/5] bg-white border border-[#D4CAB5] rounded-lg flex items-center justify-center shadow-sm">
-              <div class="text-center p-8">
-                <div class="text-8xl text-[#A67C00]/30 mb-6">𝄞</div>
-                <blockquote class="text-lg text-[#2C2416] italic leading-relaxed">
-                  "Каждая нота должна дышать. Каждый аккорд — рассказывать историю."
-                </blockquote>
+          <!-- Left: VU Meter Style Display -->
+          <div class="bg-[#F5E6D3] rounded-2xl p-6 shadow-inner">
+            <div class="text-center mb-4">
+              <div class="text-[10px] uppercase tracking-[0.3em] text-[#8B7355] mb-2">Сигнал</div>
+              <div class="flex justify-center gap-1">
+                <div
+                  v-for="i in 10"
+                  :key="i"
+                  class="w-3 h-8 rounded-sm transition-all duration-150"
+                  :class="i <= signalStrength * 10 ? (i > 7 ? 'bg-[#C9A227]' : 'bg-[#8B7355]') : 'bg-[#D4CAB5]'"
+                ></div>
               </div>
             </div>
-            <!-- Decorative frame corner -->
-            <div class="absolute -top-3 -left-3 w-12 h-12 border-t-2 border-l-2 border-[#A67C00]/40 rounded-tl-lg"></div>
-            <div class="absolute -bottom-3 -right-3 w-12 h-12 border-b-2 border-r-2 border-[#A67C00]/40 rounded-br-lg"></div>
-          </div>
 
-          <!-- Right: Biography text -->
-          <div class="space-y-8">
-            <div>
-              <div class="flex items-center gap-4 mb-6">
-                <div class="h-px flex-1 bg-gradient-to-r from-[#D4CAB5] to-transparent"></div>
-                <span class="text-[10px] uppercase tracking-[0.3em] text-[#A67C00] font-sans">Об Авторе</span>
-              </div>
-              <h2 class="text-3xl lg:text-4xl font-light text-[#1A1510] mb-6 leading-tight">
-                Полвека служения<br/>
-                <span class="text-[#A67C00]">джазовому искусству</span>
-              </h2>
-            </div>
-
-            <div class="space-y-5 text-[#2C2416] font-light leading-relaxed">
-              <p>
-                С 1974 года — непрерывный путь через оркестровые партитуры,
-                камерные ансамбли и биг-бэнды. Каждая аранжировка — это диалог
-                между традицией и новаторством.
-              </p>
-              <p>
-                Этот архив — личное хранилище идей, гармонических открытий
-                и ритмических экспериментов, собранных за более чем пятьдесят лет
-                практики.
-              </p>
-            </div>
-
-            <div class="pt-4 flex flex-wrap gap-6 text-sm">
-              <div class="flex items-center gap-3">
-                <div class="w-2 h-2 bg-[#A67C00] rounded-full"></div>
-                <span class="text-[#4A3F2F]">Биг-бэнд аранжировки</span>
-              </div>
-              <div class="flex items-center gap-3">
-                <div class="w-2 h-2 bg-[#A67C00] rounded-full"></div>
-                <span class="text-[#4A3F2F]">Оркестровые партитуры</span>
-              </div>
-              <div class="flex items-center gap-3">
-                <div class="w-2 h-2 bg-[#A67C00] rounded-full"></div>
-                <span class="text-[#4A3F2F]">Педагогика</span>
+            <div class="text-center">
+              <div class="text-[10px] uppercase tracking-[0.3em] text-[#8B7355] mb-2">Год записи</div>
+              <div class="text-3xl font-light text-[#5C4A36]">
+                {{ currentNote ? new Date(currentNote.created_at).getFullYear() : '—' }}
               </div>
             </div>
           </div>
-        </div>
-      </div>
-    </section>
 
-    <!-- Collection Navigation -->
-    <nav class="sticky top-[73px] z-40 bg-[#FAF7F2]/95 backdrop-blur-md border-y border-[#E0D9C8]">
-      <div class="max-w-7xl mx-auto px-6 lg:px-12">
-        <div class="flex overflow-x-auto scrollbar-hide">
-          <button
-              v-for="(coll, idx) in collections"
-              :key="idx"
-              @click="setCollection(coll.type)"
-              class="flex-shrink-0 group relative px-8 py-6 transition-all duration-300"
-              :class="store.filter.note_type === coll.type ? 'text-[#A67C00]' : 'text-[#4A3F2F] hover:text-[#2C2416]'"
+          <!-- Center: Main Frequency Display -->
+          <div
+            class="bg-gradient-to-b from-[#1a1510] to-[#0d0a08] rounded-2xl p-6 relative overflow-hidden"
+            @wheel="handleDialRotate"
           >
-            <div class="flex flex-col items-center gap-2">
-              <span class="text-2xl">{{ coll.icon }}</span>
-              <span class="text-sm font-medium">{{ coll.title }}</span>
-              <span class="text-[10px] uppercase tracking-wider font-sans opacity-60">{{ coll.subtitle }}</span>
-            </div>
+            <!-- Glow effect -->
+            <div class="absolute inset-0 bg-[#C9A227] opacity-5 rounded-2xl"></div>
 
-            <!-- Active Indicator -->
-            <div
-                class="absolute bottom-0 left-1/2 -translate-x-1/2 h-0.5 bg-[#A67C00] transition-all duration-500"
-                :class="store.filter.note_type === coll.type ? 'w-3/4 opacity-100' : 'w-0 opacity-0'"
-            ></div>
-          </button>
-        </div>
-      </div>
-    </nav>
-
-    <!-- Main Gallery -->
-    <main class="relative z-10 max-w-7xl mx-auto px-6 lg:px-12 py-24">
-
-      <!-- Collection Header -->
-      <div v-if="!store.loading" class="mb-20 text-center fade-in">
-        <div class="inline-flex items-center gap-4 mb-6">
-          <div class="h-px w-12 bg-[#D4CAB5]"></div>
-          <span class="text-xs uppercase tracking-[0.3em] text-[#A67C00] font-sans">
-            {{ currentCollection.era }}
-          </span>
-          <div class="h-px w-12 bg-[#D4CAB5]"></div>
-        </div>
-
-        <h2 class="text-4xl lg:text-5xl font-light mb-4 text-[#1A1510]">
-          {{ currentCollection.title }}
-        </h2>
-        <p class="text-[#4A3F2F] italic">{{ currentCollection.subtitle }}</p>
-
-        <!-- Year Filter -->
-        <div v-if="availableYears.length > 1" class="mt-8 flex items-center justify-center gap-2 flex-wrap">
-          <button
-            @click="setYear(undefined)"
-            class="px-3 py-1.5 text-xs font-sans uppercase tracking-wider rounded-full border transition-all duration-300"
-            :class="!selectedYear
-              ? 'bg-[#A67C00] text-white border-[#A67C00]'
-              : 'text-[#4A3F2F] border-[#D4CAB5] hover:border-[#A67C00] hover:text-[#A67C00]'"
-          >
-            Все годы
-          </button>
-          <button
-            v-for="year in availableYears"
-            :key="year"
-            @click="setYear(year)"
-            class="px-3 py-1.5 text-xs font-sans uppercase tracking-wider rounded-full border transition-all duration-300"
-            :class="selectedYear === year
-              ? 'bg-[#A67C00] text-white border-[#A67C00]'
-              : 'text-[#4A3F2F] border-[#D4CAB5] hover:border-[#A67C00] hover:text-[#A67C00]'"
-          >
-            {{ year }}
-          </button>
-        </div>
-      </div>
-
-      <!-- Works Grid -->
-      <div v-if="store.filteredNotes.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-10">
-        <TransitionGroup name="exhibit">
-          <article
-              v-for="note in store.filteredNotes"
-              :key="note.id"
-              v-show="visibleNotes.includes(note.id)"
-              @click="openNote(note)"
-              class="group cursor-pointer"
-          >
-            <!-- Frame -->
-            <div class="relative bg-white border border-[#E0D9C8] rounded-lg p-1 transition-all duration-500 group-hover:border-[#A67C00]/40 group-hover:shadow-lg">
-
-              <!-- Inner Mat -->
-              <div class="bg-[#FFFEFA] rounded p-6 min-h-[280px] flex flex-col relative overflow-hidden">
-
-                <!-- Corner Ornaments -->
-                <div class="absolute top-3 left-3 w-4 h-4 border-t border-l border-[#D4CAB5]"></div>
-                <div class="absolute top-3 right-3 w-4 h-4 border-t border-r border-[#D4CAB5]"></div>
-                <div class="absolute bottom-3 left-3 w-4 h-4 border-b border-l border-[#D4CAB5]"></div>
-                <div class="absolute bottom-3 right-3 w-4 h-4 border-b border-r border-[#D4CAB5]"></div>
-
-                <!-- Catalog Number -->
-                <div class="flex justify-between items-center mb-4 text-[10px] font-sans uppercase tracking-widest text-[#6B5D4D]">
-                  <span>№ {{ note.id.substring(0, 6) }}</span>
-                  <span>{{ new Date(note.created_at).getFullYear() }}</span>
+            <!-- Frequency Scale -->
+            <div class="relative h-20 mb-4 overflow-hidden">
+              <div class="absolute inset-0 flex items-center justify-center">
+                <!-- Scale marks -->
+                <div class="relative w-full h-full">
+                  <div
+                    v-for="i in 20"
+                    :key="i"
+                    class="absolute top-1/2 -translate-y-1/2 text-[#C9A227]/40 text-[10px] font-mono"
+                    :style="{ left: `${i * 5}%` }"
+                  >
+                    |
+                  </div>
                 </div>
 
-                <!-- Content -->
-                <div class="flex-1 relative z-10">
-                  <component :is="getCardComponent(note.note_type)" :note="note" />
+                <!-- Center indicator -->
+                <div class="absolute top-0 left-1/2 -translate-x-1/2 w-0.5 h-full bg-[#C9A227]"></div>
+
+                <!-- Frequency numbers -->
+                <div
+                  class="absolute inset-0 flex items-center transition-transform duration-300"
+                  :style="{ transform: `translateX(${-selectedIndex * 30}px)` }"
+                >
+                  <div
+                    v-for="(note, index) in store.filteredNotes"
+                    :key="note.id"
+                    class="flex-shrink-0 w-[30px] text-center"
+                  >
+                    <span
+                      class="text-[10px] font-mono transition-all"
+                      :class="index === selectedIndex ? 'text-[#C9A227] text-lg' : 'text-[#666]'"
+                    >
+                      {{ (88 + index * 0.2).toFixed(1) }}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <!-- Label Plate -->
-            <div class="mt-4 text-center">
-              <div class="text-sm text-[#4A3F2F] group-hover:text-[#A67C00] transition-colors">
-                {{ collections.find(c => c.type === note.note_type)?.title || 'Untitled' }}
+            <!-- Current Frequency -->
+            <div class="text-center">
+              <div class="text-5xl font-light text-[#C9A227] tracking-wider font-mono mb-2">
+                {{ currentFreq }}
+                <span class="text-2xl text-[#C9A227]/60">FM</span>
+              </div>
+              <div class="text-[10px] uppercase tracking-[0.3em] text-[#666]">
+                {{ currentNote ? typeInfo[currentNote.note_type].icon : '◎' }}
+                {{ store.filteredNotes.length }} станций
               </div>
             </div>
-          </article>
-        </TransitionGroup>
-      </div>
 
-      <!-- Load More -->
-      <div v-if="store.hasMore && store.filteredNotes.length > 0" class="flex flex-col items-center mt-24 gap-8">
-        <div class="flex items-center gap-4">
-          <div class="h-px w-16 bg-gradient-to-r from-transparent to-[#D4CAB5]"></div>
-          <span class="text-xs uppercase tracking-widest text-[#6B5D4D] font-sans">Показать ещё</span>
-          <div class="h-px w-16 bg-gradient-to-l from-transparent to-[#D4CAB5]"></div>
-        </div>
-
-        <button
-            @click="store.loadMore()"
-            :disabled="store.loading"
-            class="px-8 py-3 border border-[#D4CAB5] text-[#A67C00] hover:bg-[#F5F1E8] hover:border-[#A67C00] text-sm uppercase tracking-widest font-sans transition-all duration-300 disabled:opacity-30 rounded"
-        >
-          {{ store.loading ? 'Загрузка...' : 'Загрузить ещё' }}
-        </button>
-      </div>
-
-      <!-- Empty State -->
-      <div v-else-if="!store.loading && store.filteredNotes.length === 0" class="min-h-[50vh] flex flex-col items-center justify-center text-center fade-in">
-        <div class="w-32 h-32 border border-[#D4CAB5] rounded-lg flex items-center justify-center mb-8 text-5xl text-[#A67C00]/40">
-          ♪
-        </div>
-        <h3 class="text-2xl font-light mb-4 text-[#2C2416]">Коллекция Пуста</h3>
-        <button
-            @click="openCreate"
-            class="text-[#A67C00] hover:text-[#B8860B] text-sm uppercase tracking-widest border-b border-[#D4CAB5] hover:border-[#A67C00] pb-1 transition-all font-sans"
-        >
-          Добавить Первую Работу
-        </button>
-      </div>
-
-      <!-- Loading -->
-      <div v-else-if="store.loading" class="min-h-[60vh] flex items-center justify-center">
-        <div class="text-center space-y-4">
-          <div class="text-3xl text-[#A67C00] animate-pulse">𝄞</div>
-          <div class="text-sm uppercase tracking-widest text-[#6B5D4D] font-sans">Загрузка архива...</div>
-        </div>
-      </div>
-
-    </main>
-
-    <!-- Footer Archive Info -->
-    <footer class="border-t border-[#E0D9C8] bg-[#F5F1E8] py-16 mt-16">
-      <div class="max-w-7xl mx-auto px-6 lg:px-12">
-        <div class="grid md:grid-cols-3 gap-12 mb-12">
-
-          <div>
-            <h4 class="text-sm uppercase tracking-widest text-[#A67C00] mb-4 font-sans">О Коллекции</h4>
-            <p class="text-sm text-[#4A3F2F] leading-relaxed font-light">
-              Личный архив джазового аранжировщика и композитора. Каждая партитура, каждая заметка — часть полувекового путешествия через большие оркестры, квартеты и бесконечные поиски идеального звучания.
-            </p>
-          </div>
-
-          <div>
-            <h4 class="text-sm uppercase tracking-widest text-[#A67C00] mb-4 font-sans">Хронология</h4>
-            <div class="space-y-2 text-sm text-[#4A3F2F] font-light">
-              <div class="flex justify-between border-b border-[#E0D9C8] pb-2">
-                <span>Начало карьеры</span>
-                <span class="text-[#A67C00]">1974</span>
-              </div>
-              <div class="flex justify-between border-b border-[#E0D9C8] pb-2">
-                <span>Активная деятельность</span>
-                <span class="text-[#A67C00]">51 год</span>
-              </div>
-              <div class="flex justify-between border-b border-[#E0D9C8] pb-2">
-                <span>Архив обновлён</span>
-                <span class="text-[#A67C00]">{{ new Date().getFullYear() }}</span>
-              </div>
+            <!-- Tuning hint -->
+            <div class="absolute bottom-2 left-0 right-0 text-center">
+              <span class="text-[8px] text-[#555] uppercase tracking-widest">прокрутка для настройки</span>
             </div>
           </div>
 
-          <div>
-            <h4 class="text-sm uppercase tracking-widest text-[#A67C00] mb-4 font-sans">Навигация</h4>
-            <div class="space-y-3">
+          <!-- Right: Station Info -->
+          <div class="bg-[#F5E6D3] rounded-2xl p-6 shadow-inner">
+            <div class="text-center">
+              <div class="text-[10px] uppercase tracking-[0.3em] text-[#8B7355] mb-3">Категория</div>
+
+              <div v-if="currentNote" class="space-y-3">
+                <div class="text-4xl">{{ typeInfo[currentNote.note_type].icon }}</div>
+                <div class="text-lg text-[#5C4A36] font-light">
+                  {{ currentNote.note_type === 'thought' ? 'Мысль' :
+                     currentNote.note_type === 'harmony' ? 'Гармония' :
+                     currentNote.note_type === 'phrase' ? 'Фраза' :
+                     currentNote.note_type === 'rhythm' ? 'Ритм' : 'Партитура' }}
+                </div>
+              </div>
+
+              <div v-else class="text-[#8B7355]">
+                Поиск...
+              </div>
+            </div>
+
+            <div class="mt-6 text-center">
+              <div class="text-[10px] uppercase tracking-[0.3em] text-[#8B7355] mb-2">Всего записей</div>
+              <div class="text-2xl font-light text-[#C9A227]">{{ store.filteredNotes.length }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Speaker Grille with Content -->
+        <div class="bg-[#4A2C17] rounded-2xl p-1">
+          <div class="bg-gradient-to-b from-[#F5E6D3] to-[#E8D4BC] rounded-xl p-8 relative">
+
+            <!-- Grille pattern overlay -->
+            <div class="absolute inset-0 opacity-5 rounded-xl"
+                 style="background-image: radial-gradient(circle, #000 1px, transparent 1px); background-size: 8px 8px;">
+            </div>
+
+            <!-- Current Note Content -->
+            <div v-if="currentNote" class="relative z-10">
+              <div class="flex items-start justify-between mb-6">
+                <div>
+                  <div class="text-sm text-[#8B7355] mb-1">{{ formatDate(currentNote.created_at) }}</div>
+                  <div class="text-[10px] uppercase tracking-widest text-[#A89F8B]">
+                    № {{ currentNote.id.substring(0, 8) }}
+                  </div>
+                </div>
+                <button
+                  @click="openNote(currentNote)"
+                  class="px-6 py-3 bg-[#C9A227] text-white hover:bg-[#B8860B] rounded-full text-sm shadow-lg transition-all flex items-center gap-2"
+                >
+                  <span>Открыть полностью</span>
+                  <span>→</span>
+                </button>
+              </div>
+
+              <!-- Content Display -->
+              <div class="min-h-[200px]">
+                <!-- Thought -->
+                <div v-if="currentNote.note_type === 'thought'" class="max-w-3xl">
+                  <p class="text-2xl lg:text-3xl font-light text-[#3D2F1E] leading-relaxed italic">
+                    "{{ currentNote.content }}"
+                  </p>
+                </div>
+
+                <!-- Harmony -->
+                <div v-else-if="currentNote.note_type === 'harmony'">
+                  <pre class="font-mono text-xl text-[#704214] whitespace-pre-wrap leading-loose bg-white/50 p-6 rounded-lg">{{ currentNote.content }}</pre>
+                </div>
+
+                <!-- Phrase -->
+                <div v-else-if="currentNote.note_type === 'phrase'" class="text-center py-8">
+                  <div class="w-32 h-32 mx-auto rounded-full border-4 border-[#C9A227] flex items-center justify-center mb-6 hover:bg-[#C9A227]/10 cursor-pointer transition-colors">
+                    <span class="text-5xl text-[#C9A227]">▶</span>
+                  </div>
+                  <p class="text-xl text-[#5C4A36] italic">{{ currentNote.content }}</p>
+                </div>
+
+                <!-- Rhythm -->
+                <div v-else-if="currentNote.note_type === 'rhythm'" class="text-center py-8">
+                  <div class="text-7xl font-light text-[#C9A227] mb-6 font-mono">
+                    {{ currentNote.metadata.time_signature || '4/4' }}
+                  </div>
+                  <p class="text-xl text-[#5C4A36]">{{ currentNote.content }}</p>
+                </div>
+
+                <!-- Score -->
+                <div v-else-if="currentNote.note_type === 'score'" class="text-center py-8">
+                  <div class="w-48 h-32 mx-auto border-4 border-dashed border-[#C9A227]/50 rounded-lg flex items-center justify-center mb-6 bg-white/30">
+                    <span class="text-6xl text-[#C9A227]/50">𝄞</span>
+                  </div>
+                  <p class="text-xl text-[#5C4A36]">{{ currentNote.content }}</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Empty State -->
+            <div v-else-if="!store.loading && store.filteredNotes.length === 0" class="text-center py-16">
+              <div class="text-6xl text-[#C9A227]/30 mb-6">📻</div>
+              <h3 class="text-2xl text-[#5C4A36] mb-4">Эфир пуст</h3>
+              <p class="text-[#8B7355] mb-6">Создайте первую запись для вещания</p>
               <button
-                  v-for="coll in collections.slice(1)"
-                  :key="coll.title"
-                  @click="setCollection(coll.type)"
-                  class="block text-sm text-[#4A3F2F] hover:text-[#A67C00] transition-colors text-left font-light"
+                @click="openCreate"
+                class="px-8 py-3 bg-[#C9A227] text-white hover:bg-[#B8860B] rounded-full shadow-lg transition-all"
               >
-                {{ coll.title }}
+                Начать запись
               </button>
             </div>
+
+            <!-- Loading -->
+            <div v-else-if="store.loading" class="text-center py-16">
+              <div class="text-6xl text-[#C9A227] animate-pulse mb-4">◎</div>
+              <p class="text-[#8B7355] uppercase tracking-widest text-sm">Поиск сигнала...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom Control Knobs -->
+        <div class="flex justify-center gap-16 mt-8">
+          <!-- Volume Knob -->
+          <div class="text-center">
+            <div class="w-16 h-16 rounded-full bg-gradient-to-b from-[#C9A227] to-[#8B6914] shadow-lg flex items-center justify-center cursor-pointer hover:scale-105 transition-transform">
+              <div class="w-1 h-6 bg-[#5C4A36] rounded-full" style="transform: rotate(-30deg);"></div>
+            </div>
+            <div class="text-[10px] uppercase tracking-widest text-[#D4CAB5] mt-3">Громкость</div>
           </div>
 
-        </div>
+          <!-- Tuning Knob -->
+          <div class="text-center">
+            <div
+              class="w-20 h-20 rounded-full bg-gradient-to-b from-[#C9A227] to-[#8B6914] shadow-lg flex items-center justify-center cursor-pointer hover:scale-105 transition-transform"
+              :style="{ transform: `rotate(${dialAngle}deg)` }"
+            >
+              <div class="w-1 h-8 bg-[#5C4A36] rounded-full"></div>
+            </div>
+            <div class="text-[10px] uppercase tracking-widest text-[#D4CAB5] mt-3">Настройка</div>
+          </div>
 
-        <div class="pt-8 border-t border-[#E0D9C8] text-center">
-          <p class="text-xs uppercase tracking-[0.25em] text-[#6B5D4D] font-sans">
-            © {{ new Date().getFullYear() }} Gmazz Musical Archive — Персональный архив
-          </p>
+          <!-- Tone Knob -->
+          <div class="text-center">
+            <div class="w-16 h-16 rounded-full bg-gradient-to-b from-[#C9A227] to-[#8B6914] shadow-lg flex items-center justify-center cursor-pointer hover:scale-105 transition-transform">
+              <div class="w-1 h-6 bg-[#5C4A36] rounded-full" style="transform: rotate(45deg);"></div>
+            </div>
+            <div class="text-[10px] uppercase tracking-widest text-[#D4CAB5] mt-3">Тембр</div>
+          </div>
         </div>
       </div>
+
+      <!-- Station List (like radio presets) -->
+      <div class="mt-8">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg text-[#5C4A36] font-light">Все станции</h3>
+          <span class="text-sm text-[#8B7355]">{{ store.filteredNotes.length }} записей</span>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          <button
+            v-for="(note, index) in store.filteredNotes"
+            :key="note.id"
+            @click="selectStation(index)"
+            class="p-4 rounded-xl text-left transition-all"
+            :class="index === selectedIndex
+              ? 'bg-[#C9A227] text-white shadow-lg scale-105'
+              : 'bg-white/60 hover:bg-white text-[#5C4A36] hover:shadow-md'"
+          >
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-lg">{{ typeInfo[note.note_type].icon }}</span>
+              <span class="font-mono text-sm">{{ (88 + index * 0.2).toFixed(1) }}</span>
+            </div>
+            <div class="text-[10px] uppercase tracking-wider opacity-70 truncate">
+              {{ truncate(note.content, 25) }}
+            </div>
+          </button>
+        </div>
+
+        <!-- Load More -->
+        <div v-if="store.hasMore" class="text-center mt-8">
+          <button
+            @click="store.loadMore()"
+            :disabled="store.loading"
+            class="px-8 py-3 border-2 border-[#8B7355] text-[#5C4A36] hover:bg-[#8B7355] hover:text-white rounded-full transition-all disabled:opacity-50"
+          >
+            {{ store.loading ? 'Поиск...' : 'Найти ещё станции' }}
+          </button>
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="relative z-10 py-8 text-center">
+      <p class="text-sm text-[#8B7355]">
+        Gmazz Radio Archive © 1974—{{ new Date().getFullYear() }}
+      </p>
+      <p class="text-xs text-[#A89F8B] mt-1">
+        «Музыка — это то, что происходит между нотами»
+      </p>
     </footer>
   </div>
 </template>
 
 <style scoped>
-.exhibit-enter-active,
-.exhibit-leave-active {
-  transition: all 0.7s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.exhibit-enter-from {
-  opacity: 0;
-  transform: translateY(30px) scale(0.96);
-}
-
-.exhibit-leave-to {
-  opacity: 0;
-  transform: translateY(-30px) scale(0.96);
-}
-
-.fade-in {
-  animation: fadeIn 1.2s ease-out forwards;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
 </style>
