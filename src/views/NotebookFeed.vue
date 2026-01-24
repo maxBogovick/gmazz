@@ -8,52 +8,82 @@ const router = useRouter();
 const store = useNotesStore();
 const mouseX = ref(0.5);
 const mouseY = ref(0.5);
+const scrollY = ref(0);
+const time = ref(0);
 
-const typeConfig: Record<NoteType, { name: string; icon: string; accent: string; bg: string }> = {
+
+const typeConfig: Record<NoteType, { name: string; icon: string; accent: string; bg: string; gradient: string; frequency: number }> = {
   thought: {
     name: 'Мысль',
     icon: '✦',
     accent: '#C4956A',
-    bg: 'linear-gradient(135deg, #FDF8F3 0%, #F9F1E8 100%)'
+    bg: 'linear-gradient(135deg, #FDF8F3 0%, #F9F1E8 100%)',
+    gradient: 'linear-gradient(135deg, rgba(196, 149, 106, 0.15) 0%, rgba(196, 149, 106, 0.05) 100%)',
+    frequency: 261.63 // C4
   },
   harmony: {
     name: 'Гармония',
     icon: '♮',
     accent: '#7B9E87',
-    bg: 'linear-gradient(135deg, #F5F9F6 0%, #EBF4EE 100%)'
+    bg: 'linear-gradient(135deg, #F5F9F6 0%, #EBF4EE 100%)',
+    gradient: 'linear-gradient(135deg, rgba(123, 158, 135, 0.15) 0%, rgba(123, 158, 135, 0.05) 100%)',
+    frequency: 329.63 // E4
   },
   phrase: {
     name: 'Фраза',
     icon: '𝄞',
     accent: '#8B7BA8',
-    bg: 'linear-gradient(135deg, #F8F6FA 0%, #F0ECF5 100%)'
+    bg: 'linear-gradient(135deg, #F8F6FA 0%, #F0ECF5 100%)',
+    gradient: 'linear-gradient(135deg, rgba(139, 123, 168, 0.15) 0%, rgba(139, 123, 168, 0.05) 100%)',
+    frequency: 392.00 // G4
   },
   rhythm: {
     name: 'Ритм',
     icon: '◈',
     accent: '#B8856E',
-    bg: 'linear-gradient(135deg, #FBF6F4 0%, #F6EDE8 100%)'
+    bg: 'linear-gradient(135deg, #FBF6F4 0%, #F6EDE8 100%)',
+    gradient: 'linear-gradient(135deg, rgba(184, 133, 110, 0.15) 0%, rgba(184, 133, 110, 0.05) 100%)',
+    frequency: 440.00 // A4
   },
   score: {
     name: 'Партитура',
     icon: '𝄚',
     accent: '#6B8FAD',
-    bg: 'linear-gradient(135deg, #F5F8FA 0%, #EAF1F6 100%)'
+    bg: 'linear-gradient(135deg, #F5F8FA 0%, #EAF1F6 100%)',
+    gradient: 'linear-gradient(135deg, rgba(107, 143, 173, 0.15) 0%, rgba(107, 143, 173, 0.05) 100%)',
+    frequency: 523.25 // C5
   },
 };
 
+let animationFrame: number;
+
 onMounted(async () => {
   await store.fetchNotes();
-  window.addEventListener('mousemove', handleMouseMove);
+  window.addEventListener('mousemove', handleMouseMove, { passive: true });
+  window.addEventListener('scroll', handleScroll, { passive: true });
+
+  const animate = () => {
+    time.value += 0.01;
+    animationFrame = requestAnimationFrame(animate);
+  };
+  animate();
 });
 
 onUnmounted(() => {
   window.removeEventListener('mousemove', handleMouseMove);
+  window.removeEventListener('scroll', handleScroll);
+  if (animationFrame) cancelAnimationFrame(animationFrame);
 });
 
 function handleMouseMove(e: MouseEvent) {
-  mouseX.value = e.clientX / window.innerWidth;
-  mouseY.value = e.clientY / window.innerHeight;
+  requestAnimationFrame(() => {
+    mouseX.value = e.clientX / window.innerWidth;
+    mouseY.value = e.clientY / window.innerHeight;
+  });
+}
+
+function handleScroll() {
+  scrollY.value = window.scrollY;
 }
 
 function openNote(note: Note) {
@@ -72,12 +102,9 @@ async function openRandomNote() {
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('ru-RU', {
     day: 'numeric',
-    month: 'short'
+    month: 'short',
+    year: 'numeric'
   });
-}
-
-function formatYear(dateStr: string): string {
-  return new Date(dateStr).getFullYear().toString();
 }
 
 function truncate(text: string, len: number): string {
@@ -86,113 +113,190 @@ function truncate(text: string, len: number): string {
 
 const ambientStyle = computed(() => ({
   background: `
-    radial-gradient(ellipse 80% 50% at ${30 + mouseX.value * 20}% ${20 + mouseY.value * 20}%, rgba(255, 220, 180, 0.15) 0%, transparent 50%),
-    radial-gradient(ellipse 60% 40% at ${70 - mouseX.value * 15}% ${60 + mouseY.value * 15}%, rgba(200, 180, 160, 0.1) 0%, transparent 50%),
-    linear-gradient(180deg, #F8F4F0 0%, #F5F0EA 50%, #F2EBE4 100%)
+    radial-gradient(ellipse 100% 70% at ${30 + mouseX.value * 25}% ${20 + mouseY.value * 25}%, rgba(255, 225, 190, 0.25) 0%, transparent 65%),
+    radial-gradient(ellipse 80% 60% at ${70 - mouseX.value * 20}% ${60 + mouseY.value * 20}%, rgba(210, 190, 170, 0.18) 0%, transparent 65%),
+    radial-gradient(ellipse 60% 50% at ${50 + Math.sin(time.value) * 15}% ${50 + Math.cos(time.value * 0.8) * 15}%, rgba(255, 240, 220, 0.15) 0%, transparent 55%),
+    linear-gradient(180deg, #FAF6F2 0%, #F6F1EC 30%, #F3EDE6 70%, #F0E8E0 100%)
   `
 }));
+
+const headerOpacity = computed(() => Math.min(scrollY.value / 100, 1));
+const parallaxOffset = computed(() => scrollY.value * 0.5);
+
+function getCardSize(index: number) {
+  const pattern = index % 7;
+  return {
+    cols: pattern === 0 ? 'col-span-12 md:col-span-8' :
+        pattern === 5 || pattern === 6 ? 'col-span-12 md:col-span-6' :
+            'col-span-12 md:col-span-4',
+    minHeight: pattern === 0 ? 'min-h-[320px]' : 'min-h-[240px]',
+    truncateLength: pattern === 0 ? 300 : 160
+  };
+}
+
+// Musical notation elements for decoration
+const musicalNotes = ['𝅝', '𝅗𝅥', '𝅘𝅥', '𝅘𝅥𝅮', '𝅘𝅥𝅯', '♩', '♪', '♫', '♬'];
 </script>
 
 <template>
-  <div class="min-h-screen" :style="ambientStyle">
+  <div class="min-h-screen overflow-x-hidden" :style="ambientStyle">
 
-    <!-- Atmospheric Layers -->
+    <!-- Enhanced Atmospheric Layers with Musical Theme -->
     <div class="fixed inset-0 pointer-events-none overflow-hidden">
-      <!-- Warm light from top-left -->
+      <!-- Primary warm glow -->
       <div
-        class="absolute -top-1/4 -left-1/4 w-[800px] h-[800px] rounded-full opacity-40"
-        style="background: radial-gradient(circle, rgba(255, 235, 210, 0.6) 0%, transparent 70%);"
-        :style="{ transform: `translate(${mouseX * 30}px, ${mouseY * 30}px)` }"
-      ></div>
+          class="absolute -top-1/3 -left-1/4 w-[1200px] h-[1200px] rounded-full opacity-60 will-change-transform blur-[100px]"
+          style="background: radial-gradient(circle, rgba(255, 230, 200, 0.9) 0%, rgba(255, 215, 170, 0.5) 35%, transparent 70%);"
+          :style="{ transform: `translate3d(${mouseX * 50}px, ${mouseY * 50}px, 0) scale(${1 + Math.sin(time) * 0.08})` }"
+      />
 
-      <!-- Subtle mist layers -->
+      <!-- Secondary ambient glow -->
       <div
-        class="absolute top-1/3 right-0 w-full h-64 opacity-30"
-        style="background: linear-gradient(90deg, transparent 0%, rgba(245, 240, 235, 0.8) 50%, transparent 100%);"
-      ></div>
+          class="absolute -bottom-1/3 -right-1/4 w-[900px] h-[900px] rounded-full opacity-50 will-change-transform blur-[100px]"
+          style="background: radial-gradient(circle, rgba(210, 180, 160, 0.7) 0%, rgba(190, 160, 140, 0.4) 35%, transparent 70%);"
+          :style="{ transform: `translate3d(${-mouseX * 35}px, ${-mouseY * 35}px, 0) scale(${1 + Math.cos(time * 0.7) * 0.08})` }"
+      />
+
+      <!-- Tertiary accent glow -->
+      <div
+          class="absolute top-1/2 left-1/2 w-[700px] h-[700px] rounded-full opacity-30 will-change-transform blur-[80px]"
+          style="background: radial-gradient(circle, rgba(220, 200, 180, 0.6) 0%, transparent 60%);"
+          :style="{ transform: `translate3d(${Math.sin(time * 0.5) * 100}px, ${Math.cos(time * 0.3) * 100}px, 0)` }"
+      />
+
+      <!-- Soft gradient overlays -->
+      <div
+          class="absolute top-1/4 right-0 w-full h-[500px] opacity-40"
+          style="background: linear-gradient(90deg, transparent 0%, rgba(250, 240, 230, 0.95) 50%, transparent 100%);"
+          :style="{ transform: `translateX(${Math.sin(time * 0.4) * 30}px)` }"
+      />
+
+      <!-- Multiple light shafts -->
+      <div
+          class="absolute left-1/5 top-0 w-[2px] h-full opacity-15 blur-sm"
+          style="background: linear-gradient(180deg, transparent 0%, rgba(255, 220, 180, 0.9) 20%, rgba(255, 220, 180, 0.9) 80%, transparent 100%);"
+          :style="{ transform: `translateX(${mouseX * 120}px)` }"
+      />
+      <div
+          class="absolute right-1/3 top-0 w-[2px] h-full opacity-15 blur-sm"
+          style="background: linear-gradient(180deg, transparent 0%, rgba(210, 190, 170, 0.9) 25%, rgba(210, 190, 170, 0.9) 75%, transparent 100%);"
+          :style="{ transform: `translateX(${-mouseX * 80}px)` }"
+      />
     </div>
 
-    <!-- Floating Dust Particles -->
-    <div class="fixed inset-0 pointer-events-none overflow-hidden opacity-40">
+    <!-- Enhanced Floating Musical Notes -->
+    <div class="fixed inset-0 pointer-events-none overflow-hidden">
       <div
-        v-for="i in 20"
-        :key="i"
-        class="absolute w-1 h-1 rounded-full bg-amber-200/50"
-        :style="{
-          left: `${(i * 5) % 100}%`,
-          top: `${(i * 7 + 10) % 100}%`,
-          animation: `float ${8 + i % 4}s ease-in-out infinite`,
-          animationDelay: `${i * 0.3}s`
+          v-for="i in 40"
+          :key="i"
+          class="absolute will-change-transform font-serif"
+          :class="i % 4 === 0 ? 'text-3xl' : i % 4 === 1 ? 'text-2xl' : i % 4 === 2 ? 'text-xl' : 'text-lg'"
+          :style="{
+          left: `${(i * 7) % 100}%`,
+          top: `${(i * 9 + 15) % 100}%`,
+          color: i % 3 === 0 ? 'rgba(196, 149, 106, 0.08)' : i % 3 === 1 ? 'rgba(123, 158, 135, 0.08)' : 'rgba(139, 123, 168, 0.08)',
+          animation: `float-musical-${i % 3} ${8 + i % 6}s ease-in-out infinite`,
+          animationDelay: `${i * 0.15}s`,
+          textShadow: i % 5 === 0 ? '0 0 30px rgba(255, 220, 180, 0.4)' : 'none',
+          filter: i % 6 === 0 ? 'blur(0.5px)' : 'none'
         }"
-      ></div>
+      >
+        {{ musicalNotes[i % musicalNotes.length] }}
+      </div>
     </div>
 
-    <!-- Header -->
-    <header class="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-[#F8F4F0]/70">
+    <!-- Subtle grain texture -->
+    <div class="fixed inset-0 pointer-events-none opacity-[0.025] mix-blend-overlay"
+         style="background-image: url('data:image/svg+xml,%3Csvg viewBox=&quot;0 0 200 200&quot; xmlns=&quot;http://www.w3.org/2000/svg&quot;%3E%3Cfilter id=&quot;noise&quot;%3E%3CfeTurbulence type=&quot;fractalNoise&quot; baseFrequency=&quot;1.2&quot; numOctaves=&quot;3&quot; /%3E%3C/filter%3E%3Crect width=&quot;100%&quot; height=&quot;100%&quot; filter=&quot;url(%23noise)&quot; /%3E%3C/svg%3E');" />
+
+    <!-- Header with enhanced glassmorphism -->
+    <header
+        class="fixed top-0 left-0 right-0 z-50 backdrop-blur-2xl transition-all duration-700 border-b"
+        :style="{
+        backgroundColor: `rgba(250, 246, 242, ${0.65 + headerOpacity * 0.25})`,
+        borderColor: `rgba(200, 180, 160, ${0.15 + headerOpacity * 0.25})`,
+        boxShadow: headerOpacity > 0.5 ? '0 8px 40px rgba(0,0,0,0.06), 0 2px 8px rgba(200,180,160,0.1)' : 'none'
+      }"
+    >
       <div class="max-w-7xl mx-auto px-8 lg:px-16 h-20 flex items-center justify-between">
-        <div class="flex items-center gap-4">
-          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center text-amber-700 text-lg shadow-sm">
-            𝄞
+        <div class="flex items-center gap-4 cursor-pointer group" @click="router.push('/')">
+          <div class="relative w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100 flex items-center justify-center text-amber-700 text-xl shadow-xl group-hover:shadow-2xl transition-all duration-500 group-hover:scale-110 group-hover:rotate-12 overflow-hidden">
+            <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-amber-200/50 to-orange-200/50 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/40 to-transparent" />
+            <span class="relative z-10 font-serif">𝄞</span>
           </div>
           <div>
-            <span class="text-xl font-medium text-stone-700">Gmazz</span>
-            <span class="text-[10px] text-stone-400 block -mt-0.5">архив маэстро</span>
+            <span class="text-xl font-semibold text-stone-700 group-hover:text-amber-700 transition-colors duration-300 tracking-tight">Gmazz</span>
+            <span class="text-[9px] text-stone-400 block -mt-0.5 tracking-[0.25em] uppercase font-medium">личный архив</span>
           </div>
         </div>
 
-        <div class="flex items-center gap-6">
+        <nav class="flex items-center gap-3">
           <button
-            @click="openRandomNote"
-            class="text-sm text-stone-500 hover:text-stone-700 transition-colors flex items-center gap-2"
+              @click="openRandomNote"
+              class="relative text-sm text-stone-500 hover:text-amber-700 transition-all duration-300 flex items-center gap-2.5 px-5 py-2.5 rounded-xl hover:bg-white/70 overflow-hidden group backdrop-blur-sm"
           >
-            <span class="text-amber-600">✦</span>
-            случайная
+            <div class="absolute inset-0 bg-gradient-to-r from-amber-200/0 via-amber-200/60 to-amber-200/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+            <span class="text-amber-600 animate-sparkle relative text-base">✦</span>
+            <span class="relative font-medium">случайная</span>
           </button>
           <button
-            @click="openCreate"
-            class="text-sm text-stone-600 bg-white/80 hover:bg-white px-5 py-2.5 rounded-xl shadow-sm hover:shadow transition-all"
+              @click="openCreate"
+              class="relative text-sm text-stone-700 bg-gradient-to-br from-white/95 to-stone-50/95 hover:from-white hover:to-stone-50 px-7 py-2.5 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 active:scale-95 overflow-hidden group backdrop-blur-sm border border-stone-200/50"
           >
-            + новая запись
+            <div class="absolute inset-0 bg-gradient-to-r from-amber-50/0 via-amber-50/80 to-amber-50/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+            <span class="relative font-semibold tracking-tight">+ новая запись</span>
           </button>
-        </div>
+        </nav>
       </div>
     </header>
 
-    <!-- Hero Section -->
-    <section class="relative pt-32 pb-16 px-8 lg:px-16">
+    <!-- Enhanced Hero Section -->
+    <section class="relative pt-40 pb-28 px-8 lg:px-16" :style="{ transform: `translateY(${-parallaxOffset * 0.3}px)` }">
       <div class="max-w-7xl mx-auto">
-        <div class="max-w-2xl">
-          <!-- Decorative element -->
-          <div class="flex items-center gap-4 mb-6">
-            <div class="text-3xl text-amber-300">❧</div>
-            <div class="h-px flex-1 bg-gradient-to-r from-amber-200 to-transparent"></div>
+        <div class="max-w-3xl">
+          <div class="flex items-center gap-5 mb-10 overflow-hidden">
+            <div class="text-5xl text-amber-400 animate-pulse-slow drop-shadow-lg">❧</div>
+            <div class="h-[2px] flex-1 relative overflow-hidden rounded-full">
+              <div class="absolute inset-0 bg-gradient-to-r from-amber-300 via-amber-200 to-transparent" />
+              <div class="absolute inset-0 bg-gradient-to-r from-amber-400 via-amber-300 to-transparent translate-x-[-100%] animate-shimmer" />
+            </div>
           </div>
 
-          <h1 class="text-5xl lg:text-6xl font-light text-stone-700 leading-tight mb-6">
-            Пятьдесят один
-            <span class="block text-stone-400">год в джазе</span>
+          <h1 class="text-7xl lg:text-8xl font-light text-stone-800 leading-[0.95] mb-10 tracking-tight">
+            <span class="inline-block hover:text-amber-700 transition-colors duration-700 drop-shadow-sm">Пятьдесят</span>
+            <span class="inline-block hover:text-amber-700 transition-colors duration-700 drop-shadow-sm"> один</span>
+            <span class="block text-stone-400 mt-4 text-6xl lg:text-7xl hover:text-stone-500 transition-colors duration-700">год в джазе</span>
           </h1>
 
-          <p class="text-lg text-stone-500 leading-relaxed max-w-lg">
+          <p class="text-2xl lg:text-[26px] text-stone-500 leading-relaxed max-w-2xl">
             Мысли, гармонии, мелодические фразы и партитуры —
-            <span class="text-stone-600">живой архив музыкальных идей</span>
+            <span class="relative inline-block text-stone-700 font-medium px-1">
+              живой архив музыкальных идей
+              <span class="absolute bottom-0 left-0 w-full h-[2px] bg-gradient-to-r from-amber-400 via-amber-300 to-transparent rounded-full" />
+            </span>
           </p>
 
-          <!-- Quick Stats -->
-          <div class="flex items-center gap-8 mt-10">
-            <div class="text-center">
-              <span class="block text-3xl font-light text-stone-600">{{ store.notes.length || '—' }}</span>
-              <span class="text-xs text-stone-400">записей</span>
+          <!-- Enhanced Stats -->
+          <div class="flex items-center gap-16 mt-16">
+            <div class="group text-center relative cursor-default">
+              <div class="absolute inset-0 bg-gradient-to-br from-amber-300/25 to-transparent rounded-3xl blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+              <span class="block text-6xl font-light text-stone-700 group-hover:text-amber-700 transition-all duration-700 group-hover:scale-110 relative drop-shadow-sm">
+                {{ store.notes.length || '—' }}
+              </span>
+              <span class="text-[10px] text-stone-400 uppercase tracking-[0.25em] mt-3 block font-semibold">записей</span>
             </div>
-            <div class="w-px h-8 bg-stone-200"></div>
-            <div class="text-center">
-              <span class="block text-3xl font-light text-stone-600">5</span>
-              <span class="text-xs text-stone-400">типов</span>
+            <div class="w-[2px] h-14 bg-gradient-to-b from-transparent via-stone-300 to-transparent rounded-full" />
+            <div class="group text-center relative cursor-default">
+              <div class="absolute inset-0 bg-gradient-to-br from-amber-300/25 to-transparent rounded-3xl blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+              <span class="block text-6xl font-light text-stone-700 group-hover:text-amber-700 transition-all duration-700 group-hover:scale-110 relative drop-shadow-sm">5</span>
+              <span class="text-[10px] text-stone-400 uppercase tracking-[0.25em] mt-3 block font-semibold">типов</span>
             </div>
-            <div class="w-px h-8 bg-stone-200"></div>
-            <div class="text-center">
-              <span class="block text-3xl font-light text-stone-600">1974</span>
-              <span class="text-xs text-stone-400">начало</span>
+            <div class="w-[2px] h-14 bg-gradient-to-b from-transparent via-stone-300 to-transparent rounded-full" />
+            <div class="group text-center relative cursor-default">
+              <div class="absolute inset-0 bg-gradient-to-br from-amber-300/25 to-transparent rounded-3xl blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+              <span class="block text-6xl font-light text-stone-700 group-hover:text-amber-700 transition-all duration-700 group-hover:scale-110 relative drop-shadow-sm">1974</span>
+              <span class="text-[10px] text-stone-400 uppercase tracking-[0.25em] mt-3 block font-semibold">начало</span>
             </div>
           </div>
         </div>
@@ -200,133 +304,166 @@ const ambientStyle = computed(() => ({
     </section>
 
     <!-- Notes Collection -->
-    <section class="relative px-8 lg:px-16 pb-24">
+    <section class="relative px-8 lg:px-16 pb-32">
       <div class="max-w-7xl mx-auto">
 
-        <!-- Section Header -->
-        <div class="flex items-center justify-between mb-10">
-          <h2 class="text-sm uppercase tracking-widest text-stone-400">Коллекция работ</h2>
-          <div class="h-px flex-1 mx-8 bg-gradient-to-r from-stone-200 via-stone-200 to-transparent"></div>
+        <div class="flex items-center justify-between mb-16">
+          <h2 class="text-xs uppercase tracking-[0.3em] text-stone-400 font-bold">Коллекция работ</h2>
+          <div class="h-[2px] flex-1 mx-10 relative overflow-hidden rounded-full">
+            <div class="absolute inset-0 bg-gradient-to-r from-stone-300 via-stone-200 to-transparent" />
+            <div class="absolute inset-0 bg-gradient-to-r from-amber-300 to-transparent translate-x-[-100%] animate-shimmer-slow" />
+          </div>
         </div>
 
-        <!-- Bento-style Grid -->
-        <div v-if="store.filteredNotes.length > 0" class="grid grid-cols-12 gap-5">
+        <!-- Ultra Enhanced Bento Grid -->
+        <div v-if="store.filteredNotes.length > 0" class="grid grid-cols-12 gap-7 lg:gap-8">
           <article
-            v-for="(note, index) in store.filteredNotes"
-            :key="note.id"
-            @click="openNote(note)"
-            class="group cursor-pointer"
-            :class="[
-              // Varying sizes for visual interest
-              index % 7 === 0 ? 'col-span-12 md:col-span-8' :
-              index % 7 === 1 ? 'col-span-12 md:col-span-4' :
-              index % 7 === 2 ? 'col-span-12 md:col-span-4' :
-              index % 7 === 3 ? 'col-span-12 md:col-span-4' :
-              index % 7 === 4 ? 'col-span-12 md:col-span-4' :
-              index % 7 === 5 ? 'col-span-12 md:col-span-6' :
-              'col-span-12 md:col-span-6'
-            ]"
+              v-for="(note, index) in store.filteredNotes"
+              :key="note.id"
+              @click="openNote(note)"
+              class="group cursor-pointer perspective-1000"
+              :class="getCardSize(index).cols"
           >
             <div
-              class="relative h-full rounded-2xl p-6 transition-all duration-500 group-hover:shadow-xl group-hover:-translate-y-1 overflow-hidden"
-              :style="{ background: typeConfig[note.note_type].bg }"
-              :class="index % 7 === 0 ? 'min-h-[280px]' : 'min-h-[220px]'"
-            >
-              <!-- Ambient glow on hover -->
-              <div
-                class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
+                class="relative h-full rounded-[28px] p-8 lg:p-10 transition-all duration-700 ease-out group-hover:shadow-2xl overflow-hidden preserve-3d will-change-transform"
                 :style="{
-                  background: `radial-gradient(circle at 30% 30%, ${typeConfig[note.note_type].accent}15 0%, transparent 60%)`
-                }"
-              ></div>
-
-              <!-- Decorative corner element -->
+                background: typeConfig[note.note_type].bg,
+                transform: 'translateZ(0)'
+              }"
+                :class="getCardSize(index).minHeight"
+            >
+              <!-- Enhanced layered glows -->
               <div
-                class="absolute top-4 right-4 text-4xl opacity-10 group-hover:opacity-20 transition-opacity"
-                :style="{ color: typeConfig[note.note_type].accent }"
+                  class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-all duration-1000 pointer-events-none blur-3xl"
+                  :style="{
+                  background: `radial-gradient(circle at ${mouseX * 100}% ${mouseY * 100}%, ${typeConfig[note.note_type].accent}40 0%, ${typeConfig[note.note_type].accent}15 35%, transparent 70%)`
+                }"
+              />
+
+              <div
+                  class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-all duration-700 pointer-events-none"
+                  :style="{
+                  background: typeConfig[note.note_type].gradient
+                }"
+              />
+
+              <!-- Animated border with musical pulse -->
+              <div class="absolute inset-0 rounded-[28px] opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none overflow-hidden">
+                <div
+                    class="absolute inset-0 border-2 rounded-[28px]"
+                    :style="{
+                    borderColor: typeConfig[note.note_type].accent + '40',
+                    animation: `pulse-border 2s ease-in-out infinite`
+                  }"
+                />
+              </div>
+
+              <!-- 3D floating icon with rotation -->
+              <div
+                  class="absolute top-7 right-7 text-6xl lg:text-7xl opacity-[0.06] group-hover:opacity-25 transition-all duration-1000 will-change-transform font-serif"
+                  :style="{
+                  color: typeConfig[note.note_type].accent,
+                  transform: `translateZ(40px) rotateY(${mouseX * 25 - 12.5}deg) rotateX(${mouseY * -25 + 12.5}deg) scale(${1 + Math.sin(time + index * 0.5) * 0.12})`
+                }"
               >
                 {{ typeConfig[note.note_type].icon }}
               </div>
 
+              <!-- Dynamic light reflection -->
+              <div
+                  class="absolute inset-0 opacity-0 group-hover:opacity-40 transition-opacity duration-1000 pointer-events-none"
+                  :style="{
+                  background: `linear-gradient(${mouseX * 180}deg, transparent 0%, ${typeConfig[note.note_type].accent}15 50%, transparent 100%)`
+                }"
+              />
+
               <!-- Card Content -->
               <div class="relative z-10 h-full flex flex-col">
-                <!-- Header -->
-                <div class="flex items-center gap-3 mb-4">
+                <!-- Enhanced Header -->
+                <div class="flex items-center gap-3.5 mb-7">
                   <span
-                    class="w-8 h-8 rounded-lg flex items-center justify-center text-sm"
-                    :style="{
-                      backgroundColor: typeConfig[note.note_type].accent + '20',
+                      class="w-12 h-12 rounded-2xl flex items-center justify-center text-lg group-hover:scale-125 group-hover:rotate-12 transition-all duration-700 shadow-lg group-hover:shadow-2xl relative overflow-hidden font-serif"
+                      :style="{
+                      backgroundColor: typeConfig[note.note_type].accent + '35',
                       color: typeConfig[note.note_type].accent
                     }"
                   >
-                    {{ typeConfig[note.note_type].icon }}
+                    <span class="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent" />
+                    <span class="relative drop-shadow-sm">{{ typeConfig[note.note_type].icon }}</span>
                   </span>
-                  <span class="text-xs font-medium" :style="{ color: typeConfig[note.note_type].accent }">
+                  <span class="text-xs font-bold uppercase tracking-[0.18em] group-hover:tracking-[0.25em] transition-all duration-500" :style="{ color: typeConfig[note.note_type].accent }">
                     {{ typeConfig[note.note_type].name }}
                   </span>
-                  <span class="text-xs text-stone-400 ml-auto">
+                  <span class="text-xs text-stone-400 ml-auto font-mono tabular-nums group-hover:text-stone-600 transition-colors">
                     {{ formatDate(note.created_at) }}
                   </span>
                 </div>
 
-                <!-- Main Content -->
+                <!-- Main Content with Enhanced Styling -->
                 <div class="flex-1">
-                  <!-- Thought: Large quote style -->
+                  <!-- Thought -->
                   <div v-if="note.note_type === 'thought'" class="h-full flex flex-col">
-                    <p class="text-lg lg:text-xl text-stone-600 leading-relaxed font-light flex-1">
-                      «{{ truncate(note.content, index % 7 === 0 ? 280 : 150) }}»
+                    <p class="text-2xl lg:text-[28px] text-stone-600 leading-relaxed font-light flex-1 group-hover:text-stone-800 transition-colors duration-700">
+                      «{{ truncate(note.content, getCardSize(index).truncateLength) }}»
                     </p>
                   </div>
 
-                  <!-- Harmony: Code block style -->
+                  <!-- Harmony -->
                   <div v-else-if="note.note_type === 'harmony'" class="h-full flex flex-col">
-                    <div class="flex-1 bg-white/50 rounded-xl p-4">
-                      <pre class="font-mono text-sm text-stone-600 whitespace-pre-wrap leading-relaxed">{{ truncate(note.content, index % 7 === 0 ? 250 : 120) }}</pre>
+                    <div class="flex-1 bg-white/80 rounded-2xl p-7 backdrop-blur-sm border border-white/60 group-hover:bg-white/95 group-hover:shadow-xl group-hover:border-white/80 transition-all duration-700">
+                      <pre class="font-mono text-sm text-stone-600 whitespace-pre-wrap leading-loose group-hover:text-stone-800 transition-colors">{{ truncate(note.content, getCardSize(index).truncateLength) }}</pre>
                     </div>
-                    <div v-if="note.metadata.chord_symbol" class="mt-3 flex items-center gap-2">
-                      <span class="text-xs text-stone-400">аккорд:</span>
-                      <span class="text-sm font-mono text-stone-600">{{ note.metadata.chord_symbol }}</span>
+                    <div v-if="note.metadata?.chord_symbol" class="mt-6 flex items-center gap-3">
+                      <span class="text-xs text-stone-400 uppercase tracking-wider font-semibold">аккорд:</span>
+                      <span class="text-xl font-mono font-bold text-stone-700 px-4 py-1.5 bg-white/70 rounded-xl shadow-md">{{ note.metadata.chord_symbol }}</span>
                     </div>
                   </div>
 
-                  <!-- Phrase: Audio-like style -->
+                  <!-- Phrase -->
                   <div v-else-if="note.note_type === 'phrase'" class="h-full flex flex-col">
-                    <div class="flex items-center gap-4 mb-4">
+                    <div class="flex items-center gap-6 mb-7">
                       <div
-                        class="w-12 h-12 rounded-full flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform"
-                        :style="{ backgroundColor: typeConfig[note.note_type].accent }"
+                          class="w-[70px] h-[70px] rounded-2xl flex items-center justify-center text-white shadow-xl group-hover:scale-125 group-hover:rotate-12 transition-all duration-700 cursor-pointer relative overflow-hidden"
+                          :style="{ backgroundColor: typeConfig[note.note_type].accent }"
                       >
-                        ▶
+                        <div class="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent" />
+                        <span class="text-2xl relative animate-pulse-slow drop-shadow-md">▶</span>
                       </div>
-                      <!-- Waveform visualization -->
-                      <div class="flex-1 flex items-center gap-0.5 h-8">
+                      <!-- Enhanced waveform -->
+                      <div class="flex-1 flex items-center gap-[3px] h-14">
                         <div
-                          v-for="j in 24"
-                          :key="j"
-                          class="flex-1 rounded-full transition-all"
-                          :style="{
-                            height: `${20 + Math.sin(j * 0.5) * 60}%`,
-                            backgroundColor: typeConfig[note.note_type].accent + '40'
+                            v-for="j in 36"
+                            :key="j"
+                            class="flex-1 rounded-full transition-all duration-500 group-hover:opacity-100"
+                            :style="{
+                            height: `${25 + Math.sin(j * 0.35 + time) * 65}%`,
+                            backgroundColor: typeConfig[note.note_type].accent + '70',
+                            opacity: 0.6 + Math.sin(time * 2.5 + j * 0.25) * 0.3,
+                            transform: `scaleY(${1 + Math.sin(time * 3.5 + j * 0.15) * 0.35})`
                           }"
-                        ></div>
+                        />
                       </div>
                     </div>
-                    <p class="text-stone-500 text-sm flex-1">{{ truncate(note.content, 100) }}</p>
+                    <p class="text-stone-500 leading-relaxed flex-1 group-hover:text-stone-700 transition-colors duration-700 text-lg">{{ truncate(note.content, 130) }}</p>
                   </div>
 
-                  <!-- Rhythm: Time signature focus -->
+                  <!-- Rhythm -->
                   <div v-else-if="note.note_type === 'rhythm'" class="h-full flex flex-col">
-                    <div class="flex items-start gap-6">
+                    <div class="flex items-start gap-10">
                       <div
-                        class="text-4xl font-light"
-                        :style="{ color: typeConfig[note.note_type].accent }"
+                          class="text-7xl font-light leading-none group-hover:scale-110 transition-transform duration-700"
+                          :style="{
+                          color: typeConfig[note.note_type].accent,
+                          textShadow: `0 0 25px ${typeConfig[note.note_type].accent}50`,
+                          filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.1))'
+                        }"
                       >
-                        {{ note.metadata.time_signature || '4/4' }}
+                        {{ note.metadata?.time_signature || '4/4' }}
                       </div>
                       <div class="flex-1">
-                        <p class="text-stone-500 leading-relaxed">{{ truncate(note.content, 120) }}</p>
-                        <div v-if="note.metadata.mood" class="mt-3">
-                          <span class="text-xs px-2 py-1 rounded-full bg-white/60 text-stone-500">
+                        <p class="text-stone-500 leading-relaxed group-hover:text-stone-700 transition-colors duration-700 text-lg">{{ truncate(note.content, 150) }}</p>
+                        <div v-if="note.metadata?.mood" class="mt-6">
+                          <span class="text-xs px-5 py-2 rounded-full bg-white/90 text-stone-600 font-bold shadow-md border border-stone-200/50">
                             {{ note.metadata.mood }}
                           </span>
                         </div>
@@ -334,30 +471,46 @@ const ambientStyle = computed(() => ({
                     </div>
                   </div>
 
-                  <!-- Score: Document preview style -->
+                  <!-- Score -->
                   <div v-else-if="note.note_type === 'score'" class="h-full flex flex-col">
-                    <div class="flex-1 bg-white/40 rounded-xl p-4 border border-stone-200/50">
-                      <!-- Staff lines -->
-                      <div class="relative h-16 mb-3">
-                        <div v-for="j in 5" :key="j" class="absolute left-0 right-0 h-px bg-stone-300/50" :style="{ top: `${j * 20}%` }"></div>
-                        <div class="absolute left-4 top-1/2 -translate-y-1/2 text-2xl text-stone-400">𝄞</div>
+                    <div class="flex-1 bg-white/70 rounded-2xl p-7 border border-stone-200/80 backdrop-blur-sm group-hover:bg-white/90 group-hover:shadow-xl group-hover:border-stone-300/80 transition-all duration-700">
+                      <div class="relative h-28 mb-6">
+                        <div
+                            v-for="j in 5"
+                            :key="j"
+                            class="absolute left-0 right-0 h-[2px] bg-stone-300/80 transition-all duration-700 group-hover:bg-stone-400/90 rounded-full"
+                            :style="{
+                            top: `${j * 22}%`,
+                            transform: `translateY(${Math.sin(time + j * 0.8) * 2}px)`,
+                            boxShadow: `0 0 8px ${typeConfig[note.note_type].accent}20`
+                          }"
+                        />
+                        <div
+                            class="absolute left-10 top-1/2 -translate-y-1/2 text-5xl text-stone-400 group-hover:text-stone-600 transition-all duration-700 font-serif drop-shadow-md"
+                            :style="{
+                            transform: `translateY(-50%) scale(${1 + Math.sin(time) * 0.08})`,
+                            color: typeConfig[note.note_type].accent + '80'
+                          }"
+                        >
+                          𝄞
+                        </div>
                       </div>
-                      <p class="text-stone-500 text-sm">{{ truncate(note.content, 100) }}</p>
+                      <p class="text-stone-500 text-base leading-relaxed group-hover:text-stone-700 transition-colors duration-700">{{ truncate(note.content, 130) }}</p>
                     </div>
-                    <div v-if="note.metadata.key" class="mt-3 text-xs text-stone-400">
-                      Тональность: <span class="text-stone-600">{{ note.metadata.key }}</span>
+                    <div v-if="note.metadata?.key" class="mt-6 text-xs text-stone-400">
+                      Тональность: <span class="text-stone-700 font-bold text-sm">{{ note.metadata.key }}</span>
                     </div>
                   </div>
                 </div>
 
-                <!-- Footer -->
-                <div class="flex items-center justify-between mt-4 pt-4 border-t border-stone-200/50">
-                  <span class="text-xs text-stone-400 font-mono">#{{ note.id.substring(0, 6) }}</span>
+                <!-- Enhanced Footer -->
+                <div class="flex items-center justify-between mt-7 pt-7 border-t border-stone-200/80 group-hover:border-stone-300/90 transition-colors duration-700">
+                  <span class="text-xs text-stone-400 font-mono tracking-wider group-hover:text-stone-500 transition-colors duration-500 tabular-nums">#{{ note.id.substring(0, 8) }}</span>
                   <span
-                    class="text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1"
-                    :style="{ color: typeConfig[note.note_type].accent }"
+                      class="text-xs font-bold opacity-0 group-hover:opacity-100 transition-all duration-700 flex items-center gap-2.5 group-hover:translate-x-2"
+                      :style="{ color: typeConfig[note.note_type].accent }"
                   >
-                    открыть <span class="text-base">→</span>
+                    открыть <span class="text-base animate-pulse-slow">→</span>
                   </span>
                 </div>
               </div>
@@ -365,57 +518,75 @@ const ambientStyle = computed(() => ({
           </article>
         </div>
 
-        <!-- Empty State -->
-        <div v-else-if="!store.loading" class="text-center py-32">
-          <div class="inline-block p-8 rounded-3xl bg-white/50 backdrop-blur-sm">
-            <div class="text-6xl text-amber-200 mb-6">𝄞</div>
-            <h3 class="text-xl text-stone-600 mb-3">Архив пуст</h3>
-            <p class="text-stone-400 mb-6 max-w-sm">
-              Создайте первую запись, чтобы начать формировать коллекцию
-            </p>
-            <button
-              @click="openCreate"
-              class="text-sm text-stone-600 bg-white hover:bg-stone-50 px-6 py-3 rounded-xl shadow-sm hover:shadow transition-all"
-            >
-              + создать запись
-            </button>
+        <!-- Enhanced Empty State -->
+        <div v-else-if="!store.loading" class="text-center py-48">
+          <div class="inline-block p-20 rounded-[2.5rem] bg-white/80 backdrop-blur-2xl shadow-2xl relative overflow-hidden">
+            <div class="absolute inset-0 bg-gradient-to-br from-amber-100/25 to-transparent" />
+            <div class="absolute top-0 right-0 w-40 h-40 bg-amber-200/25 rounded-full blur-3xl animate-pulse-slow" />
+            <div class="absolute bottom-0 left-0 w-40 h-40 bg-orange-200/25 rounded-full blur-3xl animate-pulse-slow" style="animation-delay: 1s;" />
+
+            <div class="relative">
+              <div class="text-9xl text-amber-300 mb-10 inline-block animate-float font-serif drop-shadow-lg" :style="{ transform: `scale(${1 + Math.sin(time) * 0.1})` }">𝄞</div>
+              <h3 class="text-4xl font-light text-stone-700 mb-5 tracking-tight">Архив пуст</h3>
+              <p class="text-stone-500 mb-12 max-w-md leading-relaxed text-xl mx-auto">
+                Создайте первую запись, чтобы начать формировать коллекцию музыкальных идей
+              </p>
+              <button
+                  @click="openCreate"
+                  class="relative text-base text-stone-700 bg-white hover:bg-stone-50 px-12 py-5 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500 active:scale-95 overflow-hidden group border border-stone-200/50"
+              >
+                <div class="absolute inset-0 bg-gradient-to-r from-amber-50/0 via-amber-50/90 to-amber-50/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1200" />
+                <span class="relative font-bold tracking-tight">+ создать запись</span>
+              </button>
+            </div>
           </div>
         </div>
 
         <!-- Loading -->
-        <div v-if="store.loading" class="text-center py-32">
+        <div v-if="store.loading" class="text-center py-48">
           <div class="inline-block">
-            <div class="w-10 h-10 border-2 border-amber-200 border-t-amber-500 rounded-full animate-spin mb-4"></div>
-            <p class="text-sm text-stone-400">загрузка...</p>
+            <div class="relative w-20 h-20 mb-8">
+              <div class="absolute inset-0 border-[3px] border-amber-200 rounded-full animate-ping opacity-25" />
+              <div class="absolute inset-0 border-[3px] border-amber-300 border-t-amber-700 rounded-full animate-spin" />
+            </div>
+            <p class="text-sm text-stone-400 font-bold tracking-[0.25em] uppercase">загрузка...</p>
           </div>
         </div>
 
         <!-- Load More -->
-        <div v-if="store.hasMore && store.filteredNotes.length > 0" class="text-center mt-12">
+        <div v-if="store.hasMore && store.filteredNotes.length > 0" class="text-center mt-24">
           <button
-            @click="store.loadMore()"
-            :disabled="store.loading"
-            class="text-sm text-stone-500 border border-stone-300 px-8 py-3 rounded-xl hover:bg-white/50 hover:border-stone-400 transition-all disabled:opacity-50"
+              @click="store.loadMore()"
+              :disabled="store.loading"
+              class="relative text-sm text-stone-600 border-2 border-stone-300 px-14 py-5 rounded-2xl hover:bg-white/80 hover:border-stone-400 hover:shadow-2xl transition-all duration-500 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 overflow-hidden group backdrop-blur-sm"
           >
-            показать ещё
+            <div class="absolute inset-0 bg-gradient-to-r from-stone-50/0 via-stone-50/80 to-stone-50/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1200" />
+            <span class="relative font-semibold tracking-tight">показать ещё</span>
           </button>
         </div>
       </div>
     </section>
 
-    <!-- Footer -->
-    <footer class="relative px-8 lg:px-16 py-12 border-t border-stone-200/50">
-      <div class="max-w-7xl mx-auto">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <span class="text-2xl text-amber-300">𝄞</span>
+    <!-- Enhanced Footer -->
+    <footer class="relative px-8 lg:px-16 py-24 border-t border-stone-200/80 bg-gradient-to-b from-transparent to-stone-50/70 overflow-hidden">
+      <div class="absolute inset-0 opacity-40">
+        <div class="absolute top-0 left-1/4 w-80 h-80 bg-amber-200/25 rounded-full blur-[100px]" />
+        <div class="absolute bottom-0 right-1/4 w-80 h-80 bg-orange-200/25 rounded-full blur-[100px]" />
+      </div>
+
+      <div class="max-w-7xl mx-auto relative">
+        <div class="flex flex-col md:flex-row items-center justify-between gap-10">
+          <div class="flex items-center gap-6 group cursor-pointer">
+            <span class="text-5xl text-amber-400 group-hover:scale-125 group-hover:rotate-12 transition-all duration-700 font-serif drop-shadow-lg" :style="{ transform: `scale(${1 + Math.sin(time * 0.5) * 0.08})` }">𝄞</span>
             <div>
-              <span class="text-stone-600">Gmazz</span>
-              <span class="text-xs text-stone-400 block">архив 1974—{{ new Date().getFullYear() }}</span>
+              <span class="text-stone-700 font-bold text-2xl group-hover:text-amber-700 transition-colors duration-500 tracking-tight">Gmazz</span>
+              <span class="text-xs text-stone-400 block tracking-[0.25em] uppercase mt-1 font-semibold">архив 1974—{{ new Date().getFullYear() }}</span>
             </div>
           </div>
-          <p class="text-sm text-stone-400 italic">
-            «Музыка — это то, что происходит между нотами»
+          <p class="text-lg text-stone-500 italic text-center md:text-right max-w-lg leading-relaxed relative">
+            <span class="absolute -top-6 -left-6 text-5xl text-amber-300/40 font-serif">"</span>
+            Музыка — это то, что происходит между нотами
+            <span class="absolute -bottom-6 -right-6 text-5xl text-amber-300/40 font-serif">"</span>
           </p>
         </div>
       </div>
@@ -424,28 +595,175 @@ const ambientStyle = computed(() => ({
 </template>
 
 <style scoped>
-@keyframes float {
+@keyframes float-musical-0 {
   0%, 100% {
-    transform: translateY(0) translateX(0);
+    transform: translate3d(0, 0, 0) rotate(0deg);
     opacity: 0.3;
   }
   25% {
-    transform: translateY(-20px) translateX(10px);
-    opacity: 0.6;
+    transform: translate3d(20px, -30px, 0) rotate(90deg);
+    opacity: 0.7;
   }
   50% {
-    transform: translateY(-10px) translateX(-5px);
+    transform: translate3d(-10px, -20px, 0) rotate(180deg);
     opacity: 0.4;
   }
   75% {
-    transform: translateY(-30px) translateX(5px);
+    transform: translate3d(10px, -40px, 0) rotate(270deg);
+    opacity: 0.6;
+  }
+}
+
+@keyframes float-musical-1 {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+    opacity: 0.4;
+  }
+  33% {
+    transform: translate3d(-15px, -25px, 0) rotate(120deg);
+    opacity: 0.8;
+  }
+  66% {
+    transform: translate3d(15px, -35px, 0) rotate(240deg);
     opacity: 0.5;
   }
 }
 
-/* Smooth rendering */
+@keyframes float-musical-2 {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.35;
+  }
+  50% {
+    transform: translate3d(12px, -45px, 0) scale(1.4);
+    opacity: 0.75;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes shimmer-slow {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+@keyframes pulse-slow {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.75;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes pulse-border {
+  0%, 100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes sparkle {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.3) rotate(180deg);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 3s infinite;
+}
+
+.animate-shimmer-slow {
+  animation: shimmer-slow 8s infinite;
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 3s ease-in-out infinite;
+}
+
+.animate-sparkle {
+  animation: sparkle 2s ease-in-out infinite;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
 * {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.group {
+  transition: transform 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.will-change-transform {
+  will-change: transform;
+}
+
+.group > div {
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
+/* Smooth scroll behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(245, 240, 235, 0.5);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(196, 149, 106, 0.3);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(196, 149, 106, 0.5);
 }
 </style>

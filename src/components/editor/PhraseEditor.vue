@@ -226,7 +226,7 @@ function handleKeydown(event: KeyboardEvent) {
         <div v-if="fileName || playbackUrl" class="flex flex-col items-center gap-6" @click.stop>
           <!-- Audio Player -->
           <div class="w-full bg-white border border-[#D4CAB5] p-4 rounded-lg shadow-sm">
-            <audio :src="playbackUrl" controls class="w-full h-8" />
+            <audio :src="playbackUrl || ''" controls class="w-full h-8" />
           </div>
 
           <div class="flex items-center gap-3 text-[#A67C00]">

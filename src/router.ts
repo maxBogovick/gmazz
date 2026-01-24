@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import NotebookFeed from './views/NotebookFeed.vue';
 import SingleNote from './views/SingleNote.vue';
 import CreateNote from './views/CreateNote.vue';
+import AdminPanel from './views/AdminPanel.vue';
 
 const routes = [
   {
@@ -23,6 +24,11 @@ const routes = [
     path: '/edit/:id',
     name: 'edit',
     component: CreateNote,
+  },
+  {
+    path: '/admin',
+    name: 'admin',
+    component: AdminPanel,
   },
 ];
 

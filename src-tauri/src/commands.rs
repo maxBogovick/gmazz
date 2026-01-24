@@ -1,11 +1,13 @@
 use crate::models::{CreateNoteRequest, Note, NoteMetadata, NoteType, NotesFilter, UpdateNoteRequest};
+use crate::sync::SyncClient;
 use chrono::Utc;
 use sqlx::{Pool, Sqlite};
-use tauri::{Manager, State};
+use tauri::{AppHandle, Manager, State};
 use uuid::Uuid;
 
 pub struct AppState {
     pub db: Pool<Sqlite>,
+    pub sync_client: Option<SyncClient>,
 }
 
 #[tauri::command]
@@ -252,32 +254,23 @@ pub async fn delete_note(state: State<'_, AppState>, id: String) -> Result<(), S
 
 #[tauri::command]
 pub async fn upload_file(
-    app: tauri::AppHandle,
-    file_name: String,
-    file_data: Vec<u8>,
-    file_type: String,
+    _app: tauri::AppHandle,
+    _file_name: String,
+    _file_data: Vec<u8>,
+    _file_type: String,
 ) -> Result<String, String> {
-    let app_data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e: tauri::Error| e.to_string())?;
-
-    let assets_dir = app_data_dir.join("notebook_assets");
-    let type_dir = assets_dir.join(&file_type);
-
-    std::fs::create_dir_all(&type_dir).map_err(|e| e.to_string())?;
-
-    let unique_name = format!("{}_{}", Uuid::new_v4(), file_name);
-    let file_path = type_dir.join(&unique_name);
-
-    std::fs::write(&file_path, file_data).map_err(|e| e.to_string())?;
-
-    let relative_path = format!("notebook_assets/{}/{}", file_type, unique_name);
-    Ok(relative_path)
+    Err("Please use the Server API for file uploads.".to_string())
 }
 
 #[tauri::command]
-pub fn get_asset_path(app: tauri::AppHandle, relative_path: String) -> Result<String, String> {
+pub async fn get_asset_path(app: tauri::AppHandle, relative_path: String) -> Result<String, String> {
+     // Legacy local path - might still be needed if some assets are local
+     // but ideally we should distinguish.
+     // For now, if it starts with http, return as is.
+     if relative_path.starts_with("http") {
+         return Ok(relative_path);
+     }
+    
     let app_data_dir = app
         .path()
         .app_data_dir()
@@ -285,4 +278,19 @@ pub fn get_asset_path(app: tauri::AppHandle, relative_path: String) -> Result<St
 
     let full_path = app_data_dir.join(&relative_path);
     Ok(full_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub async fn sync_local_db_to_server(app: AppHandle, state: State<'_, AppState>) -> Result<String, String> {
+    if let Some(client) = &state.sync_client {
+        let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+        let db_path = app_data_dir.join("notebook.db");
+        
+        match client.upload_current_db(&db_path).await {
+            Ok(id) => Ok(id),
+            Err(e) => Err(format!("Sync failed: {}", e))
+        }
+    } else {
+        Err("Sync not configured".to_string())
+    }
 }
