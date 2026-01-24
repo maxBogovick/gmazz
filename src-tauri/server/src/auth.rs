@@ -35,10 +35,20 @@ pub async fn auth_middleware(
     req: Request<axum::body::Body>,
     next: Next,
 ) -> Result<Response, StatusCode> {
-    let api_key = req
-        .headers()
-        .get("X-API-KEY")
-        .and_then(|val| val.to_str().ok());
+    // We need to handle the Option<String> from query or Option<&str> from header.
+    // Let's simplify.
+    let api_key_header = req.headers().get("X-API-KEY")
+        .or_else(|| req.headers().get("GUEST_API_KEY"))
+        .or_else(|| req.headers().get("guest_api_key")) // Just in case
+        .and_then(|v| v.to_str().ok()).map(|s| s.to_string());
+    
+    let api_key_query = req.uri().query().and_then(|query| {
+        url::form_urlencoded::parse(query.as_bytes())
+            .find(|(k, _)| k == "api_key" || k == "guest_api_key")
+            .map(|(_, v)| v.into_owned())
+    });
+
+    let api_key = api_key_header.or(api_key_query);
 
     let api_key = match api_key {
         Some(key) => key,
@@ -46,7 +56,7 @@ pub async fn auth_middleware(
     };
 
     let server_secret = &state.config.security.server_secret;
-    let key_hash = hash_api_key(server_secret, api_key);
+    let key_hash = hash_api_key(server_secret, &api_key);
 
     let app = state.repo.get_app_by_key_hash(&key_hash).await.map_err(|e| {
         warn!("Database error during auth: {:?}", e);

@@ -82,11 +82,13 @@ pub async fn upload_handler(
 )]
 pub async fn download_handler(
     State(state): State<Arc<AppState>>,
-    AuthenticatedApp(app): AuthenticatedApp,
+    AuthenticatedApp(_app): AuthenticatedApp,
     Path(file_id): Path<String>,
     request: Request,
 ) -> Result<Response, AppError> {
-    let meta = state.file_service.get_file_metadata(&file_id, &app.id).await?;
+    // Allow reading ANY file if you are authenticated (Guests included)
+    // UUID prevents enumeration.
+    let meta = state.file_service.get_file_metadata_any_owner(&file_id).await?;
     let abs_path = state.file_service.get_absolute_path(&meta.stored_path);
     
     if !abs_path.exists() {

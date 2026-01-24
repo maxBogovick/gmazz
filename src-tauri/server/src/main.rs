@@ -2,9 +2,12 @@ use std::sync::Arc;
 use clap::Parser;
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use gmazz_file_server::{config::Config, db, storage::StorageManager, server, cli, workers, AppState};
+use gmazz_file_server::{config::Config, db, storage::StorageManager, server, cli, workers, AppState, services};
 use gmazz_file_server::db::repo::Repo;
 use gmazz_file_server::cli::Cli;
+
+
+use tokio::sync::RwLock;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -27,15 +30,30 @@ async fn main() -> anyhow::Result<()> {
     let db = db::Db::new(&config.db_path()).await?;
     let repo = Repo::new(db.pool.clone());
 
+    let notebook_db = Arc::new(RwLock::new(None));
+
     let state = Arc::new(AppState {
         config: config.clone(),
         repo: repo.clone(),
         storage: storage.clone(),
-        file_service: gmazz_file_server::services::FileService::new(repo.clone(), storage.clone(), config.clone()),
-        archive_service: gmazz_file_server::services::ArchiveService::new(repo.clone(), storage.clone()),
-        admin_service: gmazz_file_server::services::AdminService::new(repo.clone(), config.clone()),
-        release_service: gmazz_file_server::services::ReleaseService::new(repo.clone()),
+        file_service: services::FileService::new(repo.clone(), storage.clone(), config.clone()),
+        archive_service: services::ArchiveService::new(repo.clone(), storage.clone()),
+        admin_service: services::AdminService::new(repo.clone(), config.clone()),
+        release_service: services::ReleaseService::new(repo.clone()),
+        notebook_db: notebook_db.clone(),
     });
+
+    // --- Initial Load of Active Notebook DB ---
+    {
+        // ...
+    }
+    
+    // We will initialize it lazily or via a specialized startup function
+    if let Err(e) = services::ReleaseService::reload_active_db(&state).await {
+        tracing::warn!("Could not load active notebook.db on startup: {}", e);
+    } else {
+        info!("Active notebook.db loaded successfully.");
+    }
 
     // 5. CLI Args
     let args = Cli::parse();

@@ -74,6 +74,18 @@ impl SyncClient {
         file.flush().await?;
         drop(file);
 
+        // Validate SQLite Header
+        let mut check_file = tokio::fs::File::open(&tmp_path).await?;
+        let mut header = [0u8; 16];
+        let bytes_read = tokio::io::AsyncReadExt::read(&mut check_file, &mut header).await?;
+        
+        if bytes_read < 16 || &header != b"SQLite format 3\0" {
+            println!("Downloaded file is not a valid SQLite database. Skipping sync.");
+            let _ = tokio::fs::remove_file(&tmp_path).await;
+            return Ok(false);
+        }
+        drop(check_file);
+
         // Replace current DB
         tokio::fs::rename(&tmp_path, db_path).await?;
         
@@ -86,19 +98,16 @@ impl SyncClient {
             return Err(anyhow::anyhow!("Database file not found"));
         }
 
-        // 1. Upload File
+        // 1. Upload File (Raw Binary)
         let file_content = tokio::fs::read(db_path).await?;
-        let part = reqwest::multipart::Part::bytes(file_content)
-            .file_name("notebook.db")
-            .mime_str("application/x-sqlite3")?;
-
-        let form = reqwest::multipart::Form::new().part("file", part);
-
+        // Server expects raw body, not multipart
+        
         let upload_url = format!("{}/v1/files", self.base_url);
         let resp = self.client.post(&upload_url)
             .header("X-API-KEY", &self.api_key)
             .header("X-File-Name", "notebook.db")
-            .multipart(form)
+            .header("Content-Type", "application/x-sqlite3")
+            .body(file_content)
             .send()
             .await?
             .error_for_status()?;

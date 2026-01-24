@@ -10,17 +10,39 @@ pub mod services;
 pub mod workers;
 
 use std::sync::Arc;
+
+use tokio::sync::RwLock;
+
+use sqlx::{Pool, Sqlite};
+
 use config::Config;
+
 use db::repo::Repo;
+
 use storage::StorageManager;
+
 use services::{FileService, ArchiveService, AdminService, ReleaseService};
 
+
+
 pub struct AppState {
+
     pub config: Config,
+
     pub repo: Repo,
+
     pub storage: StorageManager,
+
     pub file_service: FileService,
+
     pub archive_service: ArchiveService,
+
     pub admin_service: AdminService,
+
     pub release_service: ReleaseService,
+
+    // The connection to the currently active "notebook.db" release
+
+    pub notebook_db: Arc<RwLock<Option<Pool<Sqlite>>>>, 
+
 }

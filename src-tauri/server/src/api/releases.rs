@@ -53,6 +53,12 @@ pub async fn create_release_handler(
         payload.version_name, 
         payload.description
     ).await?;
+
+    // Reload the public DB connection
+    if let Err(e) = crate::services::ReleaseService::reload_active_db(&state).await {
+        tracing::error!("Failed to reload active DB after release: {}", e);
+        // We don't fail the request, but we log the error
+    }
     
     Ok((StatusCode::CREATED, Json(ReleaseResponse {
         id: res.id,

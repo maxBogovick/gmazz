@@ -281,16 +281,41 @@ pub async fn get_asset_path(app: tauri::AppHandle, relative_path: String) -> Res
 }
 
 #[tauri::command]
+
 pub async fn sync_local_db_to_server(app: AppHandle, state: State<'_, AppState>) -> Result<String, String> {
+
     if let Some(client) = &state.sync_client {
+
+        // Force Checkpoint to ensure .db file is up-to-date
+
+        sqlx::query("PRAGMA wal_checkpoint(TRUNCATE)")
+
+            .execute(&state.db)
+
+            .await
+
+            .map_err(|e| format!("Checkpoint failed: {}", e))?;
+
+
+
         let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+
         let db_path = app_data_dir.join("notebook.db");
+
         
+
         match client.upload_current_db(&db_path).await {
+
             Ok(id) => Ok(id),
+
             Err(e) => Err(format!("Sync failed: {}", e))
+
         }
+
     } else {
+
         Err("Sync not configured".to_string())
+
     }
+
 }

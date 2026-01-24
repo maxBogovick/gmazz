@@ -147,6 +147,20 @@ impl Repo {
         Ok(file)
     }
 
+    pub async fn get_file_any_owner(&self, file_id: &str) -> Result<Option<FileMetadata>> {
+        let file = sqlx::query_as::<_, FileMetadata>(
+            r#"
+            SELECT id, app_id, original_name, stored_path, mime_type, size_bytes, checksum, created_at, deleted_at
+            FROM files
+            WHERE id = ? AND deleted_at IS NULL
+            "#
+        )
+        .bind(file_id)
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(file)
+    }
+
     pub async fn list_files(&self, app_id: &str, limit: i64, offset: i64) -> Result<Vec<FileMetadata>> {
         let files = sqlx::query_as::<_, FileMetadata>(
             r#"
@@ -297,6 +311,57 @@ impl Repo {
         .fetch_all(&self.pool)
         .await?;
         Ok(releases)
+    }
+
+    pub async fn get_latest_global_release(&self) -> Result<Option<ReleaseWithFile>> {
+        let release = sqlx::query_as::<_, ReleaseWithFile>(
+            r#"
+            SELECT r.id, r.app_id, r.file_id, r.version_name, r.description, r.is_active, r.created_at,
+                   f.original_name as file_original_name, f.size_bytes as file_size_bytes
+            FROM releases r
+            JOIN files f ON r.file_id = f.id
+            ORDER BY r.created_at DESC
+            LIMIT 1
+            "#
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(release)
+    }
+
+    pub async fn get_active_release(&self) -> Result<Option<ReleaseWithFile>> {
+        let release = sqlx::query_as::<_, ReleaseWithFile>(
+            r#"
+            SELECT r.id, r.app_id, r.file_id, r.version_name, r.description, r.is_active, r.created_at,
+                   f.original_name as file_original_name, f.size_bytes as file_size_bytes
+            FROM releases r
+            JOIN files f ON r.file_id = f.id
+            WHERE r.is_active = 1
+            ORDER BY r.created_at DESC
+            LIMIT 1
+            "#
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(release)
+    }
+
+    pub async fn set_release_active(&self, release_id: &str) -> Result<()> {
+        let mut tx = self.pool.begin().await?;
+        
+        // Deactivate all
+        sqlx::query("UPDATE releases SET is_active = 0 WHERE is_active = 1")
+            .execute(&mut *tx)
+            .await?;
+
+        // Activate target
+        sqlx::query("UPDATE releases SET is_active = 1 WHERE id = ?")
+            .bind(release_id)
+            .execute(&mut *tx)
+            .await?;
+
+        tx.commit().await?;
+        Ok(())
     }
 }
 

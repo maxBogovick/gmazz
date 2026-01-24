@@ -43,10 +43,20 @@ pub fn run() {
             // -----------------------
 
             let db = tauri::async_runtime::block_on(async {
-                database::init_database(app_data_dir)
-                    .await
-                    .expect("Failed to initialize database")
-            });
+                match database::init_database(app_data_dir.clone()).await {
+                    Ok(pool) => Ok(pool),
+                    Err(_) => {
+                        eprintln!("Database corrupted. backing up and recreating...");
+                        let db_path = app_data_dir.join("notebook.db");
+                        let backup_path = app_data_dir.join(format!("notebook.db.corrupt.{}", chrono::Utc::now().timestamp()));
+                        if db_path.exists() {
+                            let _ = std::fs::rename(&db_path, &backup_path);
+                        }
+                        // Retry init
+                        database::init_database(app_data_dir).await
+                    }
+                }
+            }).expect("Failed to initialize database");
 
             app.manage(AppState { db, sync_client });
 

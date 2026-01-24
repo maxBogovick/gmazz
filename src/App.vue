@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router';
 import "./App.css"
 
 const router = useRouter();
+const isTauri = !!(window as any).__TAURI_INTERNALS__;
 
 onMounted(() => {
   document.addEventListener('keydown', handleGlobalHotkeys);
@@ -50,6 +51,7 @@ function handleGlobalHotkeys(event: KeyboardEvent) {
 
     <!-- Admin Button -->
     <button 
+      v-if="isTauri"
       @click="router.push({ name: 'admin' })"
       class="fixed bottom-6 right-6 z-[100] w-12 h-12 bg-stone-800 text-white rounded-full flex items-center justify-center shadow-xl hover:bg-stone-900 hover:scale-110 transition-all duration-300 group"
       title="Admin Panel"

@@ -264,9 +264,10 @@ const musicalNotes = ['𝅝', '𝅗𝅥', '𝅘𝅥', '𝅘𝅥𝅮', '𝅘𝅥�
           </div>
 
           <h1 class="text-7xl lg:text-8xl font-light text-stone-800 leading-[0.95] mb-10 tracking-tight">
-            <span class="inline-block hover:text-amber-700 transition-colors duration-700 drop-shadow-sm">Пятьдесят</span>
-            <span class="inline-block hover:text-amber-700 transition-colors duration-700 drop-shadow-sm"> один</span>
-            <span class="block text-stone-400 mt-4 text-6xl lg:text-7xl hover:text-stone-500 transition-colors duration-700">год в джазе</span>
+            <span class="inline-block hover:text-amber-700 transition-colors duration-700 drop-shadow-sm">Сергей </span>
+            <span> </span>
+            <span class="inline-block hover:text-amber-700 transition-colors duration-700 drop-shadow-sm"> Гмыря</span>
+            <span class="block text-stone-400 mt-4 text-6xl lg:text-7xl hover:text-stone-500 transition-colors duration-700">Музыкант</span>
           </h1>
 
           <p class="text-2xl lg:text-[26px] text-stone-500 leading-relaxed max-w-2xl">

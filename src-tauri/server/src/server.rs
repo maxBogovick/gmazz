@@ -22,6 +22,8 @@ use axum::http::{StatusCode, HeaderName};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
+use crate::api::public::{list_public_notes_handler, get_public_note_handler, PublicNote, NoteFilter};
+
 #[derive(OpenApi)]
 #[openapi(
     paths(
@@ -39,15 +41,19 @@ use utoipa_swagger_ui::SwaggerUi;
         crate::api::releases::create_release_handler,
         crate::api::releases::get_latest_release_handler,
         crate::api::releases::list_releases_handler,
+        crate::api::releases_actions::activate_release_handler,
+        crate::api::public::list_public_notes_handler,
+        crate::api::public::get_public_note_handler,
     ),
     components(
-        schemas(FileResponse, ListParams, ArchiveResponse, ArchiveStatusResponse, CreateKeyRequest, CreateKeyResponse, AppKeyResponse, ReleaseResponse, CreateReleaseRequest)
+        schemas(FileResponse, ListParams, ArchiveResponse, ArchiveStatusResponse, CreateKeyRequest, CreateKeyResponse, AppKeyResponse, ReleaseResponse, CreateReleaseRequest, PublicNote, NoteFilter)
     ),
     tags(
         (name = "files", description = "File management endpoints"),
         (name = "archives", description = "Archive endpoints"),
         (name = "admin", description = "Administrative endpoints"),
-        (name = "releases", description = "Release management endpoints")
+        (name = "releases", description = "Release management endpoints"),
+        (name = "public", description = "Public access endpoints")
     ),
     security(
         ("api_key" = []),
@@ -57,8 +63,16 @@ use utoipa_swagger_ui::SwaggerUi;
 struct ApiDoc;
 
 pub async fn app(state: Arc<AppState>) -> Router {
-    // API Routes (Protected by API Key)
-    let api_routes = Router::new()
+    // Note: Public routes should technically bypass `auth_middleware` if they are truly public without key.
+    // The current setup protects ALL `/v1/*` with `auth_middleware`.
+    // We need to separate them.
+    
+    let public_routes = Router::new()
+        .route("/notes", get(list_public_notes_handler))
+        .route("/notes/:id", get(get_public_note_handler))
+        .route("/auth/guest", post(crate::api::auth::create_guest_key_handler));
+
+    let protected_api_routes = Router::new()
         .route("/files", post(upload_handler))
         .route("/files", get(list_handler))
         .route("/files/:id", get(download_handler))
@@ -69,6 +83,7 @@ pub async fn app(state: Arc<AppState>) -> Router {
         .route("/releases", post(create_release_handler))
         .route("/releases", get(list_releases_handler))
         .route("/releases/latest", get(get_latest_release_handler))
+        .route("/releases/:id/activate", axum::routing::put(crate::api::releases_actions::activate_release_handler))
         .layer(middleware::from_fn_with_state(state.clone(), auth_middleware));
 
     // Admin Routes (Protected by Admin Secret)
@@ -86,6 +101,10 @@ pub async fn app(state: Arc<AppState>) -> Router {
             axum::http::header::CONTENT_TYPE,
             axum::http::header::AUTHORIZATION,
             HeaderName::from_static("x-api-key"),
+            HeaderName::from_static("guest-api-key"), // Correct header name casing for from_static? standard is lowercase for HTTP/2 but from_static expects lowercase.
+            // Wait, the prompt said "GUEST_API_KEY". HTTP headers are case-insensitive but convention is dashes.
+            // If the user sends "GUEST_API_KEY" literally (with underscores), I should allow that.
+            HeaderName::from_static("guest_api_key"), 
             HeaderName::from_static("x-admin-secret"),
             HeaderName::from_static("x-file-name"),
         ]);
@@ -93,7 +112,8 @@ pub async fn app(state: Arc<AppState>) -> Router {
     let mut router = Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
         .route("/health", get(health_check))
-        .nest("/v1", api_routes)
+        .nest("/v1/public", public_routes)
+        .nest("/v1", protected_api_routes)
         .nest("/admin", admin_routes)
         .layer(cors)
         .layer(TraceLayer::new_for_http())

@@ -91,6 +91,11 @@ impl FileService {
             .ok_or_else(|| AppError::NotFound("File not found".to_string()))
     }
 
+    pub async fn get_file_metadata_any_owner(&self, file_id: &str) -> Result<FileMetadata, AppError> {
+        self.repo.get_file_any_owner(file_id).await?
+            .ok_or_else(|| AppError::NotFound("File not found".to_string()))
+    }
+
     pub async fn list_files(&self, app_id: &str, limit: i64, offset: i64) -> Result<Vec<FileMetadata>, AppError> {
         Ok(self.repo.list_files(app_id, limit, offset).await?)
     }

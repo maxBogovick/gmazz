@@ -1,5 +1,14 @@
 export const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:8080';
-export const API_KEY = import.meta.env.VITE_API_KEY || localStorage.getItem('gmazz_api_key') || '';
+let currentApiKey = import.meta.env.VITE_API_KEY || localStorage.getItem('gmazz_api_key') || '';
+
+export const getApiKey = () => currentApiKey;
+export const setApiKey = (key: string) => {
+    currentApiKey = key;
+    localStorage.setItem('gmazz_api_key', key);
+};
+
+// Deprecated export for backward compatibility if used directly elsewhere, but try to use getApiKey()
+export const API_KEY = currentApiKey; 
 
 export interface Release {
   id: string;
@@ -12,10 +21,11 @@ export interface Release {
 }
 
 export async function getReleases(limit = 20, offset = 0): Promise<Release[]> {
-  if (!API_KEY) throw new Error('API Key is not configured');
+  const key = getApiKey();
+  if (!key) throw new Error('API Key is not configured');
 
   const response = await fetch(`${SERVER_URL}/v1/releases?limit=${limit}&offset=${offset}`, {
-    headers: { 'X-API-KEY': API_KEY }
+    headers: { 'X-API-KEY': key }
   });
 
   if (!response.ok) throw new Error(`Failed to fetch releases: ${response.statusText}`);
@@ -23,10 +33,11 @@ export async function getReleases(limit = 20, offset = 0): Promise<Release[]> {
 }
 
 export async function getLatestRelease(): Promise<Release | null> {
-  if (!API_KEY) throw new Error('API Key is not configured');
+  const key = getApiKey();
+  if (!key) throw new Error('API Key is not configured');
 
   const response = await fetch(`${SERVER_URL}/v1/releases/latest`, {
-    headers: { 'X-API-KEY': API_KEY }
+    headers: { 'X-API-KEY': key }
   });
 
   if (response.status === 404) return null;
@@ -54,6 +65,15 @@ export async function listKeys(adminSecret: string): Promise<AppKey[]> {
   });
 
   if (!response.ok) throw new Error(`Failed to list keys: ${response.statusText}`);
+  return await response.json();
+}
+
+export async function createGuestKey(): Promise<CreatedKey> {
+  const response = await fetch(`${SERVER_URL}/v1/public/auth/guest`, {
+    method: 'POST'
+  });
+
+  if (!response.ok) throw new Error(`Failed to create guest key: ${response.statusText}`);
   return await response.json();
 }
 
@@ -88,7 +108,8 @@ export interface CreateReleaseRequest {
 }
 
 export async function createRelease(request: CreateReleaseRequest): Promise<Release> {
-  if (!API_KEY) throw new Error('API Key is not configured');
+  const key = getApiKey();
+  if (!key) throw new Error('API Key is not configured');
 
   const response = await fetch(`${SERVER_URL}/v1/releases`, {
     method: 'POST',
@@ -104,7 +125,8 @@ export async function createRelease(request: CreateReleaseRequest): Promise<Rele
 }
 
 export async function uploadFileToServer(file: File): Promise<string> {
-  if (!API_KEY) {
+  const key = getApiKey();
+  if (!key) {
     throw new Error('API Key is not configured');
   }
 
@@ -112,7 +134,7 @@ export async function uploadFileToServer(file: File): Promise<string> {
   // It expects RAW BINARY body, NOT multipart/form-data.
   
   const headers = {
-    'X-API-KEY': API_KEY,
+    'X-API-KEY': key,
     'X-File-Name': file.name,
     'Content-Type': file.type || 'application/octet-stream'
   };

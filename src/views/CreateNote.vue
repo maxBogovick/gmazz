@@ -123,31 +123,19 @@ watch(() => route.query.type, (newType) => {
 
 watch([content, metadata], () => {
   if (!selectedType.value || !content.value) return;
-
   saveStatus.value = 'idle';
-
-  if (autoSaveTimer.value) {
-    clearTimeout(autoSaveTimer.value);
-  }
-
-  autoSaveTimer.value = window.setTimeout(() => {
-    saveNote();
-  }, 2500);
+  // Auto-save removed as per request
 }, { deep: true });
 
 function handleGlobalKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') {
-    if (selectedType.value && !content.value) {
-      selectedType.value = null;
-      return;
+    if (saveStatus.value === 'idle' && content.value) {
+       // Optional: confirm discard? 
+       // For now, just go back as per "no auto save". 
+       // User can stay and save if they want.
+       if(!confirm('Есть несохраненные изменения. Выйти без сохранения?')) return;
     }
-    if (content.value) {
-      saveNote().then(() => {
-        goBack();
-      });
-    } else {
-      goBack();
-    }
+    goBack();
   }
 
   if ((event.metaKey || event.ctrlKey) && event.key === 's') {
