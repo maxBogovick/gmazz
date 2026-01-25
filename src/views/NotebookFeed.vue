@@ -2,6 +2,8 @@
 import { onMounted, ref, computed, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useNotesStore } from '../store/notes';
+import { uploadFileToServer, getSetting, setSetting } from '../api/server';
+import { getAssetPath } from '../api/notes';
 import type { Note, NoteType } from '../types';
 
 const router = useRouter();
@@ -10,6 +12,57 @@ const mouseX = ref(0.5);
 const mouseY = ref(0.5);
 const scrollY = ref(0);
 const time = ref(0);
+
+// Profile photo
+const isTauri = !!(window as any).__TAURI_INTERNALS__;
+const profilePhotoUrl = ref<string>('');
+const isPhotoHovered = ref(false);
+const isUploadingPhoto = ref(false);
+const photoInputRef = ref<HTMLInputElement | null>(null);
+
+// Load profile photo from server
+async function loadProfilePhoto() {
+  try {
+    const url = await getSetting('profile_photo');
+    if (url) {
+      // Use getAssetPath to get proper URL with authentication
+      profilePhotoUrl.value = await getAssetPath(url);
+    }
+  } catch (error) {
+    console.error('Failed to load profile photo:', error);
+  }
+}
+
+function triggerPhotoUpload() {
+  photoInputRef.value?.click();
+}
+
+async function handlePhotoChange(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+
+  if (!file.type.startsWith('image/')) {
+    alert('Пожалуйста, выберите изображение');
+    return;
+  }
+
+  isUploadingPhoto.value = true;
+  try {
+    // Upload file to server
+    const url = await uploadFileToServer(file);
+    // Save URL in settings
+    await setSetting('profile_photo', url);
+    // Get displayable URL via getAssetPath
+    profilePhotoUrl.value = await getAssetPath(url);
+  } catch (error) {
+    console.error('Failed to upload photo:', error);
+    alert('Не удалось загрузить фото');
+  } finally {
+    isUploadingPhoto.value = false;
+    input.value = '';
+  }
+}
 
 
 const typeConfig: Record<NoteType, { name: string; icon: string; accent: string; bg: string; gradient: string; frequency: number }> = {
@@ -58,7 +111,10 @@ const typeConfig: Record<NoteType, { name: string; icon: string; accent: string;
 let animationFrame: number;
 
 onMounted(async () => {
-  await store.fetchNotes();
+  await Promise.all([
+    store.fetchNotes(),
+    loadProfilePhoto()
+  ]);
   window.addEventListener('mousemove', handleMouseMove, { passive: true });
   window.addEventListener('scroll', handleScroll, { passive: true });
 
@@ -251,53 +307,191 @@ const musicalNotes = ['𝅝', '𝅗𝅥', '𝅘𝅥', '𝅘𝅥𝅮', '𝅘𝅥�
       </div>
     </header>
 
+    <!-- Hidden file input for photo upload -->
+    <input
+        ref="photoInputRef"
+        type="file"
+        accept="image/*"
+        class="hidden"
+        @change="handlePhotoChange"
+    />
+
     <!-- Enhanced Hero Section -->
     <section class="relative pt-40 pb-28 px-8 lg:px-16" :style="{ transform: `translateY(${-parallaxOffset * 0.3}px)` }">
       <div class="max-w-7xl mx-auto">
-        <div class="max-w-3xl">
-          <div class="flex items-center gap-5 mb-10 overflow-hidden">
-            <div class="text-5xl text-amber-400 animate-pulse-slow drop-shadow-lg">❧</div>
-            <div class="h-[2px] flex-1 relative overflow-hidden rounded-full">
-              <div class="absolute inset-0 bg-gradient-to-r from-amber-300 via-amber-200 to-transparent" />
-              <div class="absolute inset-0 bg-gradient-to-r from-amber-400 via-amber-300 to-transparent translate-x-[-100%] animate-shimmer" />
+        <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-12 lg:gap-16">
+          <!-- Mobile Photo (shown only on small screens) -->
+          <div class="lg:hidden flex justify-center mb-8">
+            <div
+                class="relative group/photo-mobile"
+                @click="isTauri ? triggerPhotoUpload() : null"
+            >
+              <!-- Decorative frame -->
+              <div class="absolute -inset-3 bg-gradient-to-br from-amber-200/40 to-amber-50/40 rounded-[2rem] blur-xl opacity-80" />
+
+              <!-- Photo frame -->
+              <div
+                  class="relative w-48 h-56 rounded-[1.5rem] overflow-hidden shadow-xl"
+                  :class="profilePhotoUrl ? '' : 'bg-gradient-to-br from-stone-100 via-amber-50 to-stone-100'"
+              >
+                <template v-if="profilePhotoUrl">
+                  <img :src="profilePhotoUrl" alt="Сергей Гмыря" class="w-full h-full object-cover" />
+                  <div class="absolute inset-0 bg-gradient-to-t from-stone-900/20 via-transparent to-transparent pointer-events-none" />
+                </template>
+                <template v-else>
+                  <div class="absolute inset-0 flex flex-col items-center justify-center text-stone-400">
+                    <div class="text-6xl mb-2 opacity-30 font-serif">𝄞</div>
+                    <span class="text-xs uppercase tracking-widest opacity-50">Фото</span>
+                  </div>
+                </template>
+
+                <!-- Frame border -->
+                <div class="absolute inset-0 rounded-[1.5rem] border-2 border-amber-200/50 pointer-events-none" />
+
+                <!-- Edit indicator for Tauri -->
+                <div
+                    v-if="isTauri"
+                    class="absolute inset-0 bg-stone-900/0 active:bg-stone-900/40 transition-all duration-300 flex items-center justify-center"
+                >
+                  <div class="opacity-0 active:opacity-100 transition-opacity">
+                    <div class="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                      <span v-if="isUploadingPhoto" class="animate-spin">⟳</span>
+                      <span v-else>📷</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
-          <h1 class="text-7xl lg:text-8xl font-light text-stone-800 leading-[0.95] mb-10 tracking-tight">
-            <span class="inline-block hover:text-amber-700 transition-colors duration-700 drop-shadow-sm">Сергей </span>
-            <span> </span>
-            <span class="inline-block hover:text-amber-700 transition-colors duration-700 drop-shadow-sm"> Гмыря</span>
-            <span class="block text-stone-400 mt-4 text-6xl lg:text-7xl hover:text-stone-500 transition-colors duration-700">Музыкант</span>
-          </h1>
+          <!-- Left: Text Content -->
+          <div class="max-w-3xl flex-1">
+            <div class="flex items-center gap-5 mb-10 overflow-hidden">
+              <div class="text-5xl text-amber-400 animate-pulse-slow drop-shadow-lg">❧</div>
+              <div class="h-[2px] flex-1 relative overflow-hidden rounded-full">
+                <div class="absolute inset-0 bg-gradient-to-r from-amber-300 via-amber-200 to-transparent" />
+                <div class="absolute inset-0 bg-gradient-to-r from-amber-400 via-amber-300 to-transparent translate-x-[-100%] animate-shimmer" />
+              </div>
+            </div>
 
-          <p class="text-2xl lg:text-[26px] text-stone-500 leading-relaxed max-w-2xl">
-            Мысли, гармонии, мелодические фразы и партитуры —
-            <span class="relative inline-block text-stone-700 font-medium px-1">
-              живой архив музыкальных идей
-              <span class="absolute bottom-0 left-0 w-full h-[2px] bg-gradient-to-r from-amber-400 via-amber-300 to-transparent rounded-full" />
-            </span>
-          </p>
+            <h1 class="text-7xl lg:text-8xl font-light text-stone-800 leading-[0.95] mb-10 tracking-tight">
+              <span class="inline-block hover:text-amber-700 transition-colors duration-700 drop-shadow-sm">Сергей </span>
+              <span class="invisible">г</span>
+              <span class="inline-block hover:text-amber-700 transition-colors duration-700 drop-shadow-sm"> Гмыря</span>
+              <span class="block text-stone-400 mt-4 text-6xl lg:text-7xl hover:text-stone-500 transition-colors duration-700">Музыкант</span>
+            </h1>
 
-          <!-- Enhanced Stats -->
-          <div class="flex items-center gap-16 mt-16">
-            <div class="group text-center relative cursor-default">
-              <div class="absolute inset-0 bg-gradient-to-br from-amber-300/25 to-transparent rounded-3xl blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-              <span class="block text-6xl font-light text-stone-700 group-hover:text-amber-700 transition-all duration-700 group-hover:scale-110 relative drop-shadow-sm">
-                {{ store.notes.length || '—' }}
+            <p class="text-2xl lg:text-[26px] text-stone-500 leading-relaxed max-w-2xl">
+              Мысли, гармонии, мелодические фразы и партитуры —
+              <span class="relative inline-block text-stone-700 font-medium px-1">
+                живой архив музыкальных идей
+                <span class="absolute bottom-0 left-0 w-full h-[2px] bg-gradient-to-r from-amber-400 via-amber-300 to-transparent rounded-full" />
               </span>
-              <span class="text-[10px] text-stone-400 uppercase tracking-[0.25em] mt-3 block font-semibold">записей</span>
+            </p>
+
+            <!-- Enhanced Stats -->
+            <div class="flex items-center gap-16 mt-16">
+              <div class="group text-center relative cursor-default">
+                <div class="absolute inset-0 bg-gradient-to-br from-amber-300/25 to-transparent rounded-3xl blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+                <span class="block text-6xl font-light text-stone-700 group-hover:text-amber-700 transition-all duration-700 group-hover:scale-110 relative drop-shadow-sm">
+                  {{ store.notes.length || '—' }}
+                </span>
+                <span class="text-[10px] text-stone-400 uppercase tracking-[0.25em] mt-3 block font-semibold">записей</span>
+              </div>
+              <div class="w-[2px] h-14 bg-gradient-to-b from-transparent via-stone-300 to-transparent rounded-full" />
+              <div class="group text-center relative cursor-default">
+                <div class="absolute inset-0 bg-gradient-to-br from-amber-300/25 to-transparent rounded-3xl blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+                <span class="block text-6xl font-light text-stone-700 group-hover:text-amber-700 transition-all duration-700 group-hover:scale-110 relative drop-shadow-sm">5</span>
+                <span class="text-[10px] text-stone-400 uppercase tracking-[0.25em] mt-3 block font-semibold">типов</span>
+              </div>
+              <div class="w-[2px] h-14 bg-gradient-to-b from-transparent via-stone-300 to-transparent rounded-full" />
+              <div class="group text-center relative cursor-default">
+                <div class="absolute inset-0 bg-gradient-to-br from-amber-300/25 to-transparent rounded-3xl blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+                <span class="block text-6xl font-light text-stone-700 group-hover:text-amber-700 transition-all duration-700 group-hover:scale-110 relative drop-shadow-sm">В наше время</span>
+                <span class="text-[10px] text-stone-400 uppercase tracking-[0.25em] mt-3 block font-semibold">начало</span>
+              </div>
             </div>
-            <div class="w-[2px] h-14 bg-gradient-to-b from-transparent via-stone-300 to-transparent rounded-full" />
-            <div class="group text-center relative cursor-default">
-              <div class="absolute inset-0 bg-gradient-to-br from-amber-300/25 to-transparent rounded-3xl blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-              <span class="block text-6xl font-light text-stone-700 group-hover:text-amber-700 transition-all duration-700 group-hover:scale-110 relative drop-shadow-sm">5</span>
-              <span class="text-[10px] text-stone-400 uppercase tracking-[0.25em] mt-3 block font-semibold">типов</span>
-            </div>
-            <div class="w-[2px] h-14 bg-gradient-to-b from-transparent via-stone-300 to-transparent rounded-full" />
-            <div class="group text-center relative cursor-default">
-              <div class="absolute inset-0 bg-gradient-to-br from-amber-300/25 to-transparent rounded-3xl blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-              <span class="block text-6xl font-light text-stone-700 group-hover:text-amber-700 transition-all duration-700 group-hover:scale-110 relative drop-shadow-sm">1974</span>
-              <span class="text-[10px] text-stone-400 uppercase tracking-[0.25em] mt-3 block font-semibold">начало</span>
+          </div>
+
+          <!-- Right: Profile Photo (desktop) -->
+          <div class="relative flex-shrink-0 hidden lg:block">
+            <!-- Photo Container -->
+            <div
+                class="relative group/photo"
+                @mouseenter="isPhotoHovered = true"
+                @mouseleave="isPhotoHovered = false"
+            >
+              <!-- Decorative frame layers -->
+              <div class="absolute -inset-4 bg-gradient-to-br from-amber-200/40 via-orange-100/30 to-amber-50/40 rounded-[2.5rem] blur-2xl opacity-80 group-hover/photo:opacity-100 transition-opacity duration-700" />
+              <div class="absolute -inset-2 bg-gradient-to-br from-amber-100/60 to-stone-100/60 rounded-[2rem] opacity-60" />
+
+              <!-- Main photo frame -->
+              <div
+                  class="relative w-72 h-80 lg:w-80 lg:h-[22rem] rounded-[1.75rem] overflow-hidden shadow-2xl transition-all duration-700 group-hover/photo:shadow-3xl"
+                  :class="profilePhotoUrl ? '' : 'bg-gradient-to-br from-stone-100 via-amber-50 to-stone-100'"
+              >
+                <!-- Photo or placeholder -->
+                <template v-if="profilePhotoUrl">
+                  <img
+                      :src="profilePhotoUrl"
+                      alt="Сергей Гмыря"
+                      class="w-full h-full object-cover transition-transform duration-1000 group-hover/photo:scale-105"
+                  />
+                  <!-- Subtle vignette overlay -->
+                  <div class="absolute inset-0 bg-gradient-to-t from-stone-900/20 via-transparent to-stone-900/5 pointer-events-none" />
+                </template>
+
+                <!-- Placeholder when no photo -->
+                <template v-else>
+                  <div class="absolute inset-0 flex flex-col items-center justify-center text-stone-400">
+                    <div class="text-8xl mb-4 opacity-30 font-serif">𝄞</div>
+                    <span class="text-sm uppercase tracking-widest opacity-50">Фото</span>
+                  </div>
+                </template>
+
+                <!-- Golden frame border -->
+                <div class="absolute inset-0 rounded-[1.75rem] border-2 border-amber-200/50 pointer-events-none" />
+
+                <!-- Decorative corner ornaments -->
+                <div class="absolute top-3 left-3 w-8 h-8 border-t-2 border-l-2 border-amber-300/60 rounded-tl-xl pointer-events-none" />
+                <div class="absolute top-3 right-3 w-8 h-8 border-t-2 border-r-2 border-amber-300/60 rounded-tr-xl pointer-events-none" />
+                <div class="absolute bottom-3 left-3 w-8 h-8 border-b-2 border-l-2 border-amber-300/60 rounded-bl-xl pointer-events-none" />
+                <div class="absolute bottom-3 right-3 w-8 h-8 border-b-2 border-r-2 border-amber-300/60 rounded-br-xl pointer-events-none" />
+
+                <!-- Light reflection effect -->
+                <div
+                    class="absolute inset-0 opacity-0 group-hover/photo:opacity-100 transition-opacity duration-700 pointer-events-none"
+                    :style="{
+                      background: `linear-gradient(${135 + mouseX * 30}deg, rgba(255,255,255,0.15) 0%, transparent 50%)`
+                    }"
+                />
+
+                <!-- Edit overlay (only in Tauri mode) -->
+                <div
+                    v-if="isTauri"
+                    class="absolute inset-0 bg-stone-900/0 group-hover/photo:bg-stone-900/40 transition-all duration-500 flex items-center justify-center cursor-pointer"
+                    @click="triggerPhotoUpload"
+                >
+                  <div
+                      class="opacity-0 group-hover/photo:opacity-100 transition-all duration-500 transform translate-y-4 group-hover/photo:translate-y-0"
+                  >
+                    <div class="flex flex-col items-center gap-3 text-white">
+                      <div class="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/30 shadow-lg">
+                        <span v-if="isUploadingPhoto" class="text-xl animate-spin">⟳</span>
+                        <span v-else class="text-2xl">📷</span>
+                      </div>
+                      <span class="text-sm font-medium tracking-wide uppercase">
+                        {{ isUploadingPhoto ? 'Загрузка...' : (profilePhotoUrl ? 'Изменить' : 'Добавить фото') }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Decorative musical notes around frame -->
+              <div class="absolute -top-6 -right-2 text-3xl text-amber-300/40 animate-float font-serif" style="animation-delay: 0.2s;">♪</div>
+              <div class="absolute -bottom-4 -left-4 text-4xl text-amber-300/30 animate-float font-serif" style="animation-delay: 0.8s;">♫</div>
+              <div class="absolute top-1/2 -right-8 text-2xl text-amber-200/40 animate-float font-serif" style="animation-delay: 1.4s;">𝅘𝅥𝅮</div>
             </div>
           </div>
         </div>
@@ -717,6 +911,10 @@ const musicalNotes = ['𝅝', '𝅗𝅥', '𝅘𝅥', '𝅘𝅥𝅮', '𝅘𝅥�
 
 .animate-float {
   animation: float 3s ease-in-out infinite;
+}
+
+.shadow-3xl {
+  box-shadow: 0 35px 60px -15px rgba(0, 0, 0, 0.15), 0 15px 30px -10px rgba(0, 0, 0, 0.1);
 }
 
 .perspective-1000 {

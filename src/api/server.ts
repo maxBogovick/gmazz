@@ -161,3 +161,63 @@ export async function uploadFileAndGetId(file: File): Promise<string> {
   const url = await uploadFileToServer(file);
   return url.split('/').pop() || '';
 }
+
+// --- Settings API ---
+
+export interface Setting {
+  key: string;
+  value: string;
+  updated_at: number;
+}
+
+export interface AllSettingsResponse {
+  settings: Setting[];
+}
+
+export async function getAllSettings(): Promise<Setting[]> {
+  const response = await fetch(`${SERVER_URL}/v1/public/settings`);
+  if (!response.ok) throw new Error(`Failed to fetch settings: ${response.statusText}`);
+  const data: AllSettingsResponse = await response.json();
+  return data.settings;
+}
+
+export async function getSetting(key: string): Promise<string | null> {
+  const response = await fetch(`${SERVER_URL}/v1/public/settings/${encodeURIComponent(key)}`);
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`Failed to fetch setting: ${response.statusText}`);
+  const data: Setting = await response.json();
+  return data.value;
+}
+
+export async function setSetting(key: string, value: string): Promise<Setting> {
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error('API Key is not configured');
+
+  const response = await fetch(`${SERVER_URL}/v1/settings/${encodeURIComponent(key)}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-KEY': apiKey
+    },
+    body: JSON.stringify({ value })
+  });
+
+  if (!response.ok) throw new Error(`Failed to set setting: ${response.statusText}`);
+  return await response.json();
+}
+
+export async function deleteSetting(key: string): Promise<boolean> {
+  const apiKey = getApiKey();
+  if (!apiKey) throw new Error('API Key is not configured');
+
+  const response = await fetch(`${SERVER_URL}/v1/settings/${encodeURIComponent(key)}`, {
+    method: 'DELETE',
+    headers: {
+      'X-API-KEY': apiKey
+    }
+  });
+
+  if (response.status === 404) return false;
+  if (!response.ok) throw new Error(`Failed to delete setting: ${response.statusText}`);
+  return true;
+}

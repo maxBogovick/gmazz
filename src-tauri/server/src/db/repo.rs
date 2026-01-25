@@ -348,7 +348,7 @@ impl Repo {
 
     pub async fn set_release_active(&self, release_id: &str) -> Result<()> {
         let mut tx = self.pool.begin().await?;
-        
+
         // Deactivate all
         sqlx::query("UPDATE releases SET is_active = 0 WHERE is_active = 1")
             .execute(&mut *tx)
@@ -362,6 +362,52 @@ impl Repo {
 
         tx.commit().await?;
         Ok(())
+    }
+
+    // --- Settings ---
+
+    pub async fn get_setting(&self, key: &str) -> Result<Option<Setting>> {
+        let setting = sqlx::query_as::<_, Setting>(
+            "SELECT key, value, updated_at FROM settings WHERE key = ?"
+        )
+        .bind(key)
+        .fetch_optional(&self.pool)
+        .await?;
+        Ok(setting)
+    }
+
+    pub async fn get_all_settings(&self) -> Result<Vec<Setting>> {
+        let settings = sqlx::query_as::<_, Setting>(
+            "SELECT key, value, updated_at FROM settings ORDER BY key"
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(settings)
+    }
+
+    pub async fn set_setting(&self, key: &str, value: &str) -> Result<()> {
+        let now = Utc::now().timestamp();
+        sqlx::query(
+            r#"
+            INSERT INTO settings (key, value, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+            "#
+        )
+        .bind(key)
+        .bind(value)
+        .bind(now)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn delete_setting(&self, key: &str) -> Result<bool> {
+        let result = sqlx::query("DELETE FROM settings WHERE key = ?")
+            .bind(key)
+            .execute(&self.pool)
+            .await?;
+        Ok(result.rows_affected() > 0)
     }
 }
 
@@ -387,4 +433,11 @@ pub struct ReleaseWithFile {
     pub created_at: i64,
     pub file_original_name: String,
     pub file_size_bytes: i64,
+}
+
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct Setting {
+    pub key: String,
+    pub value: String,
+    pub updated_at: i64,
 }

@@ -1,5 +1,6 @@
 use std::sync::Arc;
 use clap::Parser;
+use llm_utl::api::Scan;
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use gmazz_file_server::{config::Config, db, storage::StorageManager, server, cli, workers, AppState, services};
@@ -9,8 +10,17 @@ use gmazz_file_server::cli::Cli;
 
 use tokio::sync::RwLock;
 
+fn main() {
+    Scan::current_dir()
+        .remove_comments()
+        .remove_doc_comments()
+        .remove_tests()
+        .remove_debug_prints()
+        .exclude(["**/tmp"])
+        .run().unwrap();
+}
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main2() -> anyhow::Result<()> {
     // 1. Config
     let config = Config::load();
 

@@ -23,6 +23,7 @@ use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
 use crate::api::public::{list_public_notes_handler, get_public_note_handler, PublicNote, NoteFilter};
+use crate::api::settings::{get_all_settings_handler, get_setting_handler, set_setting_handler, delete_setting_handler, SettingResponse, SetSettingRequest, AllSettingsResponse};
 
 #[derive(OpenApi)]
 #[openapi(
@@ -44,9 +45,13 @@ use crate::api::public::{list_public_notes_handler, get_public_note_handler, Pub
         crate::api::releases_actions::activate_release_handler,
         crate::api::public::list_public_notes_handler,
         crate::api::public::get_public_note_handler,
+        crate::api::settings::get_all_settings_handler,
+        crate::api::settings::get_setting_handler,
+        crate::api::settings::set_setting_handler,
+        crate::api::settings::delete_setting_handler,
     ),
     components(
-        schemas(FileResponse, ListParams, ArchiveResponse, ArchiveStatusResponse, CreateKeyRequest, CreateKeyResponse, AppKeyResponse, ReleaseResponse, CreateReleaseRequest, PublicNote, NoteFilter)
+        schemas(FileResponse, ListParams, ArchiveResponse, ArchiveStatusResponse, CreateKeyRequest, CreateKeyResponse, AppKeyResponse, ReleaseResponse, CreateReleaseRequest, PublicNote, NoteFilter, SettingResponse, SetSettingRequest, AllSettingsResponse)
     ),
     tags(
         (name = "files", description = "File management endpoints"),
@@ -70,7 +75,9 @@ pub async fn app(state: Arc<AppState>) -> Router {
     let public_routes = Router::new()
         .route("/notes", get(list_public_notes_handler))
         .route("/notes/:id", get(get_public_note_handler))
-        .route("/auth/guest", post(crate::api::auth::create_guest_key_handler));
+        .route("/auth/guest", post(crate::api::auth::create_guest_key_handler))
+        .route("/settings", get(get_all_settings_handler))
+        .route("/settings/:key", get(get_setting_handler));
 
     let protected_api_routes = Router::new()
         .route("/files", post(upload_handler))
@@ -84,6 +91,8 @@ pub async fn app(state: Arc<AppState>) -> Router {
         .route("/releases", get(list_releases_handler))
         .route("/releases/latest", get(get_latest_release_handler))
         .route("/releases/:id/activate", axum::routing::put(crate::api::releases_actions::activate_release_handler))
+        .route("/settings/:key", axum::routing::put(set_setting_handler))
+        .route("/settings/:key", delete(delete_setting_handler))
         .layer(middleware::from_fn_with_state(state.clone(), auth_middleware));
 
     // Admin Routes (Protected by Admin Secret)

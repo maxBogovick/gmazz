@@ -36,12 +36,14 @@ walkdir = "2.5"
 utoipa = { version = "4.2", features = ["axum_extras", "uuid", "chrono"] }
 utoipa-swagger-ui = { version = "7.1", features = ["axum"] }
 url = "2.5"
+llm-utl = "0.1.5"
 
 [dev-dependencies]
 reqwest = { version = "0.11", features = ["json", "multipart", "stream"] }
 tempfile = "3"
 tokio = { version = "1", features = ["full", "test-util"] }
 zip = "0.6"
+
 
 [profile.release]
 strip = true
