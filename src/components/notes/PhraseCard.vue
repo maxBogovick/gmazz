@@ -63,7 +63,7 @@ function togglePlay(event: Event) {
       <!-- No Audio Placeholder -->
       <div v-else class="text-center">
         <div class="text-4xl text-[#A67C00]/40 mb-2">♫</div>
-        <div class="text-xs text-[#4A3F2F] font-sans uppercase tracking-wider">Audio Phrase</div>
+        <div class="text-[11px] text-[#4A3F2F] font-sans uppercase tracking-wider">Audio Phrase</div>
       </div>
 
       <!-- Waveform Visual -->

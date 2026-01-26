@@ -21,7 +21,7 @@ defineProps<{
         <span
           v-for="tag in note.metadata.tags.slice(0, 3)"
           :key="tag"
-          class="text-[10px] uppercase tracking-wider text-[#A67C00] font-sans"
+          class="text-[11px] uppercase tracking-wider text-[#A67C00] font-sans"
         >
           #{{ tag }}
         </span>

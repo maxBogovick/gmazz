@@ -44,7 +44,7 @@ watch(() => textarea.value, () => {
 
 <template>
   <div class="w-full">
-    <label class="block text-[10px] uppercase tracking-[0.2em] text-[#A67C00] mb-4 font-sans">
+    <label class="block text-[11px] uppercase tracking-[0.2em] text-[#A67C00] mb-4 font-sans">
       Личная Заметка
     </label>
     <textarea

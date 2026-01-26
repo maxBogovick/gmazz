@@ -9,8 +9,8 @@ defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: string];
-  'update:filePath': [path: string, data: number[]];
-  'update:audioPath': [path: string, data: number[]];
+  'update:filePath': [path: string, data: number[], type?: string];
+  'update:audioPath': [path: string, data: number[], type?: string];
   save: [];
 }>();
 
@@ -110,7 +110,7 @@ async function processFile(file: File) {
 
   const arrayBuffer = await file.arrayBuffer();
   const uint8Array = new Uint8Array(arrayBuffer);
-  emit('update:filePath', file.name, Array.from(uint8Array));
+  emit('update:filePath', file.name, Array.from(uint8Array), file.type);
 
   textarea.value?.focus();
 }
@@ -125,7 +125,7 @@ async function processAudio(file: File) {
   
   const arrayBuffer = await file.arrayBuffer();
   const uint8Array = new Uint8Array(arrayBuffer);
-  emit('update:audioPath', file.name, Array.from(uint8Array));
+  emit('update:audioPath', file.name, Array.from(uint8Array), file.type);
 }
 
 function clearFile() {
@@ -157,7 +157,7 @@ function handleKeydown(event: KeyboardEvent) {
   <div class="w-full space-y-8">
     <!-- Drop Zone (Score) -->
     <div>
-      <label class="block text-[10px] uppercase tracking-[0.2em] text-[#A67C00] mb-4 font-sans">
+      <label class="block text-[11px] uppercase tracking-[0.2em] text-[#A67C00] mb-4 font-sans">
         Файл Партитуры
       </label>
 
@@ -192,7 +192,7 @@ function handleKeydown(event: KeyboardEvent) {
             <span class="text-sm text-[#A67C00] font-mono">{{ fileName }}</span>
             <button
               @click="clearFile"
-              class="text-xs text-[#4A3F2F] hover:text-[#A67C00] transition-colors font-sans uppercase tracking-wider"
+              class="text-[11px] text-[#4A3F2F] hover:text-[#A67C00] transition-colors font-sans uppercase tracking-wider"
             >
               Удалить
             </button>
@@ -208,11 +208,11 @@ function handleKeydown(event: KeyboardEvent) {
           </div>
           <div class="text-center">
             <p class="text-base text-[#1A1510]">{{ fileName }}</p>
-            <p class="text-xs text-[#4A3F2F] font-sans uppercase tracking-wider mt-1">PDF документ</p>
+            <p class="text-[11px] text-[#4A3F2F] font-sans uppercase tracking-wider mt-1">PDF документ</p>
           </div>
           <button
             @click="clearFile"
-            class="text-xs text-[#4A3F2F] hover:text-[#A67C00] transition-colors font-sans uppercase tracking-wider"
+            class="text-[11px] text-[#4A3F2F] hover:text-[#A67C00] transition-colors font-sans uppercase tracking-wider"
           >
             Удалить
           </button>
@@ -222,14 +222,14 @@ function handleKeydown(event: KeyboardEvent) {
         <div v-else class="flex flex-col items-center justify-center py-10 text-center">
           <div class="text-5xl text-[#A67C00]/40 mb-4">𝄞</div>
           <p class="text-[#1A1510] text-lg mb-2">Нажмите или перетащите файл</p>
-          <p class="text-xs text-[#4A3F2F] font-sans uppercase tracking-wider">PNG, JPG, или PDF</p>
+          <p class="text-[11px] text-[#4A3F2F] font-sans uppercase tracking-wider">PNG, JPG, или PDF</p>
         </div>
       </div>
     </div>
 
     <!-- Drop Zone (Audio) -->
     <div>
-      <label class="block text-[10px] uppercase tracking-[0.2em] text-[#A67C00] mb-4 font-sans">
+      <label class="block text-[11px] uppercase tracking-[0.2em] text-[#A67C00] mb-4 font-sans">
         Аудиозапись (опционально)
       </label>
 
@@ -255,7 +255,7 @@ function handleKeydown(event: KeyboardEvent) {
           </div>
           <button
             @click="clearAudio"
-            class="text-xs text-[#4A3F2F] hover:text-[#A67C00] transition-colors font-sans uppercase tracking-wider"
+            class="text-[11px] text-[#4A3F2F] hover:text-[#A67C00] transition-colors font-sans uppercase tracking-wider"
           >
             Удалить
           </button>
@@ -271,7 +271,7 @@ function handleKeydown(event: KeyboardEvent) {
 
     <!-- Notes -->
     <div>
-      <label class="block text-[10px] uppercase tracking-[0.2em] text-[#A67C00] mb-4 font-sans">
+      <label class="block text-[11px] uppercase tracking-[0.2em] text-[#A67C00] mb-4 font-sans">
         Аннотация (опционально)
       </label>
       <textarea

@@ -15,6 +15,10 @@ const imageScale = ref(1);
 const mouseX = ref(0.5);
 const mouseY = ref(0.5);
 const time = ref(0);
+const isReducedMotion = ref(false);
+const isLightAmbient = ref(false);
+let motionMedia: MediaQueryList | null = null;
+let isAnimating = false;
 
 const note = computed(() => store.currentNote);
 
@@ -95,13 +99,13 @@ onMounted(async () => {
 
   document.addEventListener('keydown', handleKeydown);
   window.addEventListener('wheel', handleWheel, { passive: false });
-  window.addEventListener('mousemove', handleMouseMove, { passive: true });
-
-  const animate = () => {
-    time.value += 0.01;
-    animationFrame = requestAnimationFrame(animate);
-  };
-  animate();
+  const savedAmbient = localStorage.getItem('gmazz_light_ambient');
+  isLightAmbient.value = savedAmbient === '1';
+  updateMotionPrefs();
+  if (motionMedia) {
+    motionMedia.addEventListener('change', updateMotionPrefs);
+  }
+  syncAmbientMotion();
 });
 
 watch(note, loadResources);
@@ -115,6 +119,9 @@ onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown);
   window.removeEventListener('wheel', handleWheel);
   window.removeEventListener('mousemove', handleMouseMove);
+  if (motionMedia) {
+    motionMedia.removeEventListener('change', updateMotionPrefs);
+  }
   if (animationFrame) cancelAnimationFrame(animationFrame);
 });
 
@@ -123,6 +130,33 @@ function handleMouseMove(e: MouseEvent) {
     mouseX.value = e.clientX / window.innerWidth;
     mouseY.value = e.clientY / window.innerHeight;
   });
+}
+
+function updateMotionPrefs() {
+  if (!motionMedia) {
+    motionMedia = window.matchMedia('(prefers-reduced-motion: reduce)');
+  }
+  isReducedMotion.value = motionMedia.matches;
+  syncAmbientMotion();
+}
+
+function syncAmbientMotion() {
+  const wantsMotion = !isReducedMotion.value && !isLightAmbient.value;
+  if (wantsMotion) {
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    if (!isAnimating) {
+      isAnimating = true;
+      const animate = () => {
+        time.value += 0.01;
+        animationFrame = requestAnimationFrame(animate);
+      };
+      animate();
+    }
+  } else {
+    window.removeEventListener('mousemove', handleMouseMove);
+    if (animationFrame) cancelAnimationFrame(animationFrame);
+    isAnimating = false;
+  }
 }
 
 function handleKeydown(event: KeyboardEvent) {
@@ -185,6 +219,12 @@ const ambientStyle = computed(() => {
   const r = parseInt(accent.slice(1, 3), 16);
   const g = parseInt(accent.slice(3, 5), 16);
   const b = parseInt(accent.slice(5, 7), 16);
+
+  if (isReducedMotion.value || isLightAmbient.value) {
+    return {
+      background: 'linear-gradient(180deg, #FAF7F2 0%, #F6F2EC 50%, #F2EDE6 100%)'
+    };
+  }
 
   return {
     background: `
@@ -260,7 +300,7 @@ const ambientStyle = computed(() => {
           <button
               v-if="note"
               @click="handleEdit"
-              class="text-[10px] uppercase tracking-[0.25em] text-amber-600 hover:text-amber-700 transition-colors font-sans font-bold"
+              class="text-[11px] uppercase tracking-[0.25em] text-amber-600 hover:text-amber-700 transition-colors font-sans font-bold"
           >
             Редактировать
           </button>
@@ -268,13 +308,13 @@ const ambientStyle = computed(() => {
           <button
               v-if="note"
               @click="handleDelete"
-              class="text-[10px] uppercase tracking-[0.25em] text-stone-500 hover:text-red-600 transition-colors font-sans font-bold"
+              class="text-[11px] uppercase tracking-[0.25em] text-stone-500 hover:text-red-600 transition-colors font-sans font-bold"
           >
             Удалить
           </button>
 
-          <div class="hidden md:flex items-center gap-2.5 text-xs text-stone-500 font-sans">
-            <kbd class="px-3 py-1.5 bg-white/70 border border-stone-300 rounded-lg text-[10px] text-stone-600 tracking-wider shadow-sm font-semibold">ESC</kbd>
+          <div class="hidden md:flex items-center gap-2.5 text-[11px] text-stone-500 font-sans">
+            <kbd class="px-3 py-1.5 bg-white/70 border border-stone-300 rounded-lg text-[11px] text-stone-600 tracking-wider shadow-sm font-semibold">ESC</kbd>
             <span class="text-stone-400">для выхода</span>
           </div>
         </div>
@@ -297,7 +337,7 @@ const ambientStyle = computed(() => {
             <!-- Catalog Info -->
             <div class="flex items-center gap-5">
               <div class="h-[2px] flex-1 bg-gradient-to-r from-transparent via-stone-300 to-stone-300 rounded-full"></div>
-              <div class="flex items-center gap-5 text-[10px] uppercase tracking-[0.3em] font-sans font-bold">
+              <div class="flex items-center gap-5 text-[11px] uppercase tracking-[0.3em] font-sans font-bold">
                 <span :style="{ color: typeInfo[note.note_type]?.accent }">№ {{ note.id.substring(0, 8) }}</span>
                 <span class="text-stone-300">•</span>
                 <span class="text-stone-400">{{ typeInfo[note.note_type]?.label }}</span>
@@ -370,11 +410,11 @@ const ambientStyle = computed(() => {
                   <template v-else-if="note.note_type === 'harmony'">
                     <div class="space-y-8">
                       <div class="text-center mb-10">
-                        <h3 class="text-xs uppercase tracking-[0.35em] font-sans font-bold mb-4" :style="{ color: typeInfo[note.note_type]?.accent }">
+                        <h3 class="text-[11px] uppercase tracking-[0.35em] font-sans font-bold mb-4" :style="{ color: typeInfo[note.note_type]?.accent }">
                           Гармонический Анализ
                         </h3>
                         <div v-if="note.metadata?.chord_symbol" class="inline-flex items-center gap-3 bg-white/80 px-6 py-3 rounded-xl shadow-md border" :style="{ borderColor: typeInfo[note.note_type]?.accent + '30' }">
-                          <span class="text-xs text-stone-500 font-sans font-semibold uppercase tracking-wider">Аккорд:</span>
+                          <span class="text-[11px] text-stone-500 font-sans font-semibold uppercase tracking-wider">Аккорд:</span>
                           <span class="text-2xl font-mono font-bold" :style="{ color: typeInfo[note.note_type]?.accent }">{{ note.metadata.chord_symbol }}</span>
                         </div>
                       </div>
@@ -423,7 +463,7 @@ const ambientStyle = computed(() => {
                         </div>
 
                         <div class="text-center">
-                          <div class="text-xs uppercase tracking-[0.3em] font-sans font-bold" :style="{ color: isPlaying ? typeInfo[note.note_type]?.accent : '#9CA3AF' }">
+                          <div class="text-[11px] uppercase tracking-[0.3em] font-sans font-bold" :style="{ color: isPlaying ? typeInfo[note.note_type]?.accent : '#9CA3AF' }">
                             {{ isPlaying ? 'Воспроизведение...' : 'Готов к воспроизведению' }}
                           </div>
                         </div>
@@ -443,7 +483,7 @@ const ambientStyle = computed(() => {
                     <div class="max-w-3xl mx-auto space-y-12">
 
                       <div class="text-center">
-                        <h3 class="text-xs uppercase tracking-[0.35em] font-sans font-bold mb-10" :style="{ color: typeInfo[note.note_type]?.accent }">
+                        <h3 class="text-[11px] uppercase tracking-[0.35em] font-sans font-bold mb-10" :style="{ color: typeInfo[note.note_type]?.accent }">
                           Ритмическая Структура
                         </h3>
                       </div>
@@ -472,7 +512,7 @@ const ambientStyle = computed(() => {
 
                       <!-- Enhanced Pattern -->
                       <div class="bg-white/90 border-2 rounded-2xl p-10 text-center backdrop-blur-sm shadow-inner" :style="{ borderColor: typeInfo[note.note_type]?.accent + '30' }">
-                        <div class="text-xs uppercase tracking-[0.3em] mb-5 font-sans font-bold" :style="{ color: typeInfo[note.note_type]?.accent }">
+                        <div class="text-[11px] uppercase tracking-[0.3em] mb-5 font-sans font-bold" :style="{ color: typeInfo[note.note_type]?.accent }">
                           Groove Pattern
                         </div>
                         <div class="font-mono text-2xl lg:text-3xl text-stone-700 tracking-wider leading-loose">
@@ -494,11 +534,11 @@ const ambientStyle = computed(() => {
                     <div class="space-y-8">
 
                       <div class="text-center mb-8">
-                        <h3 class="text-xs uppercase tracking-[0.35em] font-sans font-bold mb-4" :style="{ color: typeInfo[note.note_type]?.accent }">
+                        <h3 class="text-[11px] uppercase tracking-[0.35em] font-sans font-bold mb-4" :style="{ color: typeInfo[note.note_type]?.accent }">
                           Оригинальная Партитура
                         </h3>
                         <div v-if="note.metadata?.key" class="inline-flex items-center gap-3 bg-white/80 px-6 py-3 rounded-xl shadow-md border" :style="{ borderColor: typeInfo[note.note_type]?.accent + '30' }">
-                          <span class="text-xs text-stone-500 font-sans font-semibold uppercase tracking-wider">Тональность:</span>
+                          <span class="text-[11px] text-stone-500 font-sans font-semibold uppercase tracking-wider">Тональность:</span>
                           <span class="text-xl font-bold" :style="{ color: typeInfo[note.note_type]?.accent }">{{ note.metadata.key }}</span>
                         </div>
                       </div>
@@ -513,7 +553,7 @@ const ambientStyle = computed(() => {
                             }"
                         >
                           <span class="text-2xl">{{ isPlaying ? '⏸' : '▶' }}</span>
-                          <span class="text-xs uppercase tracking-widest font-bold">{{ isPlaying ? 'Пауза' : 'Слушать запись' }}</span>
+                          <span class="text-[11px] uppercase tracking-widest font-bold">{{ isPlaying ? 'Пауза' : 'Слушать запись' }}</span>
                         </button>
                       </div>
 
@@ -538,7 +578,7 @@ const ambientStyle = computed(() => {
                       </div>
 
                       <!-- Score Info -->
-                      <div class="flex justify-between items-center text-xs text-stone-500 font-sans px-2">
+                      <div class="flex justify-between items-center text-[11px] text-stone-500 font-sans px-2">
                         <span class="text-stone-700 font-semibold">{{ note.content }}</span>
                         <span class="uppercase tracking-wider" :style="{ color: typeInfo[note.note_type]?.accent }">Ctrl + Scroll для масштабирования</span>
                       </div>
@@ -548,7 +588,7 @@ const ambientStyle = computed(() => {
 
                 <!-- Enhanced Signature Stamp -->
                 <div class="px-10 lg:px-14 pb-10">
-                  <div class="pt-8 border-t-2 flex justify-between items-center text-[10px] uppercase tracking-[0.3em] font-sans transition-colors duration-500" :style="{ borderColor: typeInfo[note.note_type]?.accent + '30' }">
+                  <div class="pt-8 border-t-2 flex justify-between items-center text-[11px] uppercase tracking-[0.3em] font-sans transition-colors duration-500" :style="{ borderColor: typeInfo[note.note_type]?.accent + '30' }">
                     <span class="text-stone-600 font-bold">Архив Gmazz</span>
                     <span class="font-bold" :style="{ color: typeInfo[note.note_type]?.accent }">{{ new Date(note.created_at).getFullYear() }}</span>
                   </div>
@@ -565,7 +605,7 @@ const ambientStyle = computed(() => {
             <div class="max-w-3xl mx-auto">
               <div class="flex items-center gap-5 mb-8">
                 <div class="h-[2px] flex-1 bg-gradient-to-r from-transparent to-stone-300 rounded-full"></div>
-                <h3 class="text-xs uppercase tracking-[0.35em] text-stone-400 font-sans font-bold">Метаданные</h3>
+                <h3 class="text-[11px] uppercase tracking-[0.35em] text-stone-400 font-sans font-bold">Метаданные</h3>
                 <div class="h-[2px] flex-1 bg-gradient-to-l from-transparent to-stone-300 rounded-full"></div>
               </div>
 
@@ -577,7 +617,7 @@ const ambientStyle = computed(() => {
                     class="bg-white/80 backdrop-blur-sm border-2 rounded-2xl p-5 transition-all duration-500 hover:shadow-lg hover:scale-105"
                     :style="{ borderColor: typeInfo[note.note_type]?.accent + '20' }"
                 >
-                  <div class="text-xs uppercase tracking-wider text-stone-400 mb-2 font-sans font-semibold">{{ key.replace(/_/g, ' ') }}</div>
+                  <div class="text-[11px] uppercase tracking-wider text-stone-400 mb-2 font-sans font-semibold">{{ key.replace(/_/g, ' ') }}</div>
                   <div class="text-base text-stone-700 font-medium">{{ value }}</div>
                 </div>
               </div>
@@ -615,7 +655,7 @@ const ambientStyle = computed(() => {
             <span class="text-4xl text-amber-400 group-hover:scale-125 group-hover:rotate-12 transition-all duration-700 font-serif drop-shadow-lg" :style="{ transform: `scale(${1 + Math.sin(time * 0.5) * 0.08})` }">𝄞</span>
             <div>
               <span class="text-stone-700 font-bold text-xl group-hover:text-amber-700 transition-colors duration-500 tracking-tight">Gmazz</span>
-              <span class="text-xs text-stone-400 block tracking-[0.25em] uppercase mt-1 font-semibold">архив 1974—{{ new Date().getFullYear() }}</span>
+              <span class="text-[11px] text-stone-400 block tracking-[0.25em] uppercase mt-1 font-semibold">архив 1974—{{ new Date().getFullYear() }}</span>
             </div>
           </div>
           <p class="text-base text-stone-500 italic text-center md:text-right max-w-md leading-relaxed relative">

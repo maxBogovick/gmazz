@@ -8,7 +8,7 @@ defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: string];
-  'update:filePath': [path: string, data: number[]];
+  'update:filePath': [path: string, data: number[], type?: string];
   save: [];
 }>();
 
@@ -99,7 +99,7 @@ async function processFile(file: File) {
 
   const arrayBuffer = await file.arrayBuffer();
   const uint8Array = new Uint8Array(arrayBuffer);
-  emit('update:filePath', file.name, Array.from(uint8Array));
+  emit('update:filePath', file.name, Array.from(uint8Array), file.type);
 
   textarea.value?.focus();
 }
@@ -193,10 +193,10 @@ function handleKeydown(event: KeyboardEvent) {
     <!-- Recording / File Area -->
     <div>
       <div class="flex items-center justify-between mb-4">
-        <label class="text-[10px] uppercase tracking-[0.2em] text-[#A67C00] font-sans">
+        <label class="text-[11px] uppercase tracking-[0.2em] text-[#A67C00] font-sans">
           Аудио Источник
         </label>
-        <span v-if="isRecording" class="text-xs font-mono text-red-600 animate-pulse flex items-center gap-2">
+        <span v-if="isRecording" class="text-[11px] font-mono text-red-600 animate-pulse flex items-center gap-2">
           <span class="w-2 h-2 bg-red-500 rounded-full"></span>
           Запись {{ formatTime(recordingTime) }}
         </span>
@@ -238,7 +238,7 @@ function handleKeydown(event: KeyboardEvent) {
 
           <button
             @click="clearRecording"
-            class="text-xs text-[#4A3F2F] hover:text-[#A67C00] transition-colors font-sans uppercase tracking-wider"
+            class="text-[11px] text-[#4A3F2F] hover:text-[#A67C00] transition-colors font-sans uppercase tracking-wider"
           >
             Очистить и записать новое
           </button>
@@ -262,7 +262,7 @@ function handleKeydown(event: KeyboardEvent) {
 
           <div v-if="!isRecording" class="text-center space-y-2">
             <p class="text-[#1A1510] text-lg">Нажмите для записи</p>
-            <p class="text-[#4A3F2F] text-xs font-sans uppercase tracking-wider">или перетащите аудио файл</p>
+            <p class="text-[#4A3F2F] text-[11px] font-sans uppercase tracking-wider">или перетащите аудио файл</p>
           </div>
           <div v-else class="text-center">
             <p class="text-red-600 font-mono text-sm uppercase tracking-wider">Идёт запись...</p>
@@ -273,7 +273,7 @@ function handleKeydown(event: KeyboardEvent) {
 
     <!-- Comment -->
     <div>
-      <label class="block text-[10px] uppercase tracking-[0.2em] text-[#A67C00] mb-4 font-sans">
+      <label class="block text-[11px] uppercase tracking-[0.2em] text-[#A67C00] mb-4 font-sans">
         Комментарий (опционально)
       </label>
       <textarea

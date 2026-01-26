@@ -40,7 +40,7 @@ function handleKeydown(event: KeyboardEvent) {
   <div class="w-full space-y-10">
     <!-- Time Signature Section -->
     <div>
-      <label class="block text-[10px] uppercase tracking-[0.2em] text-[#A67C00] mb-4 font-sans">
+      <label class="block text-[11px] uppercase tracking-[0.2em] text-[#A67C00] mb-4 font-sans">
         Размер
       </label>
       <div class="flex items-center gap-6">
@@ -57,14 +57,14 @@ function handleKeydown(event: KeyboardEvent) {
         </div>
         <div class="text-[#4A3F2F] text-sm font-sans">
           <p class="mb-1">Например:</p>
-          <p class="text-xs text-[#6B5D4D]">5/4, 7/8, 11/8, 6/4</p>
+          <p class="text-[11px] text-[#6B5D4D]">5/4, 7/8, 11/8, 6/4</p>
         </div>
       </div>
     </div>
 
     <!-- Description Section -->
     <div>
-      <label class="block text-[10px] uppercase tracking-[0.2em] text-[#A67C00] mb-4 font-sans">
+      <label class="block text-[11px] uppercase tracking-[0.2em] text-[#A67C00] mb-4 font-sans">
         Характер / Groove
       </label>
       <textarea

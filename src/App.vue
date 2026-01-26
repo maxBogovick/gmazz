@@ -57,7 +57,7 @@ function handleGlobalHotkeys(event: KeyboardEvent) {
       title="Admin Panel"
     >
       <span class="text-xl group-hover:rotate-12 transition-transform">⚙️</span>
-      <div class="absolute right-full mr-4 px-3 py-1.5 bg-stone-800 text-[10px] uppercase tracking-widest text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+      <div class="absolute right-full mr-4 px-3 py-1.5 bg-stone-800 text-[11px] uppercase tracking-widest text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
         Панель управления
       </div>
     </button>

@@ -28,7 +28,7 @@ onMounted(async () => {
       />
       <div v-else class="text-center p-4">
         <div class="text-5xl text-[#A67C00]/40 mb-2">𝄞</div>
-        <div class="text-xs text-[#4A3F2F] font-sans uppercase tracking-wider">
+        <div class="text-[11px] text-[#4A3F2F] font-sans uppercase tracking-wider">
           {{ note.metadata.file_path || 'Score' }}
         </div>
       </div>

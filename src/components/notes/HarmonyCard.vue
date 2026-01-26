@@ -13,7 +13,7 @@ defineProps<{
       <div class="text-4xl font-mono text-[#6B4423] tracking-wide">
         {{ note.metadata.chord_symbol }}
       </div>
-      <div v-if="note.metadata?.key" class="text-xs text-[#4A3F2F] mt-1 font-sans uppercase tracking-wider">
+      <div v-if="note.metadata?.key" class="text-[11px] text-[#4A3F2F] mt-1 font-sans uppercase tracking-wider">
         Key of {{ note.metadata.key }}
       </div>
     </div>
@@ -25,7 +25,7 @@ defineProps<{
 
     <!-- Voice Leading indicator -->
     <div v-if="note.metadata?.voice_leading" class="mt-4 pt-3 border-t border-[#E0D9C8]">
-      <div class="text-[10px] uppercase tracking-wider text-[#A67C00] font-sans">
+      <div class="text-[11px] uppercase tracking-wider text-[#A67C00] font-sans">
         Voice Leading
       </div>
     </div>

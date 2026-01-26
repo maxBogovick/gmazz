@@ -21,14 +21,14 @@ const content = ref('');
 const metadata = ref<NoteMetadata>({});
 const saveStatus = ref<'idle' | 'saving' | 'saved'>('idle');
 const autoSaveTimer = ref<number | null>(null);
-const pendingFileData = ref<{ name: string; data: number[] } | null>(null);
-const pendingAudioData = ref<{ name: string; data: number[] } | null>(null);
+const pendingFileData = ref<{ name: string; data: number[]; type?: string } | null>(null);
+const pendingAudioData = ref<{ name: string; data: number[]; type?: string } | null>(null);
 const mouseX = ref(0.5);
 const mouseY = ref(0.5);
 const time = ref(0);
 
-async function handleAudioPath(fileName: string, fileData: number[]) {
-  pendingAudioData.value = { name: fileName, data: fileData };
+async function handleAudioPath(fileName: string, fileData: number[], fileType?: string) {
+  pendingAudioData.value = { name: fileName, data: fileData, type: fileType };
 }
 
 async function saveNote() {
@@ -38,12 +38,12 @@ async function saveNote() {
 
   try {
     if (pendingFileData.value) {
-      const fileType = selectedType.value === 'phrase' ? 'audio' : 'scores';
+      const mimeType = pendingFileData.value.type || inferMimeType(pendingFileData.value.name, selectedType.value);
       // Convert number[] back to Uint8Array then Blob then File
       const uint8Array = new Uint8Array(pendingFileData.value.data);
       const blob = new Blob([uint8Array]); 
       const file = new File([blob], pendingFileData.value.name, { 
-          type: fileType === 'audio' ? 'audio/wav' : 'application/pdf' // inferred simplistic type
+          type: mimeType
       });
       
       const path = await uploadFile(file);
@@ -54,7 +54,7 @@ async function saveNote() {
     if (pendingAudioData.value) {
       const uint8Array = new Uint8Array(pendingAudioData.value.data);
       const blob = new Blob([uint8Array]);
-      const file = new File([blob], pendingAudioData.value.name, { type: 'audio/wav' }); // simplistic
+      const file = new File([blob], pendingAudioData.value.name, { type: pendingAudioData.value.type || 'audio/wav' });
       
       const path = await uploadFile(file);
       metadata.value.audio_path = path;
@@ -227,8 +227,19 @@ function goBack() {
   }
 }
 
-async function handleFilePath(fileName: string, fileData: number[]) {
-  pendingFileData.value = { name: fileName, data: fileData };
+async function handleFilePath(fileName: string, fileData: number[], fileType?: string) {
+  pendingFileData.value = { name: fileName, data: fileData, type: fileType };
+}
+
+function inferMimeType(fileName: string, noteType: NoteType): string {
+  const lower = fileName.toLowerCase();
+  if (lower.endsWith('.png')) return 'image/png';
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+  if (lower.endsWith('.webp')) return 'image/webp';
+  if (lower.endsWith('.gif')) return 'image/gif';
+  if (lower.endsWith('.pdf')) return 'application/pdf';
+  if (noteType === 'phrase') return 'audio/wav';
+  return 'application/octet-stream';
 }
 
 const ambientStyle = computed(() => {
@@ -336,10 +347,10 @@ const ambientStyle = computed(() => {
                                 '#E0D9C8'
               }"
             ></div>
-            <span v-if="saveStatus === 'saving'" class="text-[10px] text-stone-600 uppercase tracking-[0.25em] font-sans font-bold">
+            <span v-if="saveStatus === 'saving'" class="text-[11px] text-stone-600 uppercase tracking-[0.25em] font-sans font-bold">
               Сохранение...
             </span>
-            <span v-else-if="saveStatus === 'saved'" class="text-[10px] uppercase tracking-[0.25em] font-sans font-bold" :style="{ color: getSelectedTypeInfo()?.accent }">
+            <span v-else-if="saveStatus === 'saved'" class="text-[11px] uppercase tracking-[0.25em] font-sans font-bold" :style="{ color: getSelectedTypeInfo()?.accent }">
               Сохранено
             </span>
           </div>
@@ -348,7 +359,7 @@ const ambientStyle = computed(() => {
           <button
               v-if="selectedType && content"
               @click="saveNote"
-              class="px-6 py-2.5 text-white hover:scale-105 text-xs uppercase tracking-[0.25em] font-sans font-bold transition-all duration-300 rounded-xl shadow-lg hover:shadow-xl"
+              class="px-6 py-2.5 text-white hover:scale-105 text-[11px] uppercase tracking-[0.25em] font-sans font-bold transition-all duration-300 rounded-xl shadow-lg hover:shadow-xl"
               :style="{
               background: `linear-gradient(135deg, ${getSelectedTypeInfo()?.accent} 0%, ${getSelectedTypeInfo()?.accent}CC 100%)`,
               boxShadow: `0 4px 12px ${getSelectedTypeInfo()?.accent}40`
@@ -369,7 +380,7 @@ const ambientStyle = computed(() => {
         <div class="text-center mb-20">
           <div class="flex items-center justify-center gap-5 mb-10">
             <div class="h-[2px] w-16 bg-gradient-to-r from-transparent via-amber-300 to-amber-300 rounded-full"></div>
-            <span class="text-xs uppercase tracking-[0.35em] text-amber-600 font-sans font-bold">Новая Запись</span>
+            <span class="text-[11px] uppercase tracking-[0.35em] text-amber-600 font-sans font-bold">Новая Запись</span>
             <div class="h-[2px] w-16 bg-gradient-to-l from-transparent via-amber-300 to-amber-300 rounded-full"></div>
           </div>
 
@@ -427,7 +438,7 @@ const ambientStyle = computed(() => {
                 <h3 class="text-2xl font-light text-stone-800 mb-2 group-hover:scale-105 transition-all duration-500 relative z-10" :style="{ color: accent }">
                   {{ labelRu }}
                 </h3>
-                <div class="text-[10px] uppercase tracking-[0.25em] text-stone-500 mb-4 font-sans font-bold">
+                <div class="text-[11px] uppercase tracking-[0.25em] text-stone-500 mb-4 font-sans font-bold">
                   {{ label }}
                 </div>
                 <p class="text-sm text-stone-600 group-hover:text-stone-700 transition-colors leading-relaxed">
@@ -436,7 +447,7 @@ const ambientStyle = computed(() => {
 
                 <!-- Hover indicator -->
                 <div class="absolute bottom-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all duration-500 group-hover:translate-y-0 translate-y-2">
-                  <span class="text-xs font-bold uppercase tracking-wider flex items-center gap-2" :style="{ color: accent }">
+                  <span class="text-[11px] font-bold uppercase tracking-wider flex items-center gap-2" :style="{ color: accent }">
                     Выбрать <span class="text-base">→</span>
                   </span>
                 </div>
@@ -450,7 +461,7 @@ const ambientStyle = computed(() => {
 
         <!-- Enhanced Keyboard Hint -->
         <div class="text-center mt-16">
-          <div class="inline-flex items-center gap-3 text-xs text-stone-500 font-sans">
+          <div class="inline-flex items-center gap-3 text-[11px] text-stone-500 font-sans">
             <kbd class="px-4 py-2 bg-white/70 border-2 border-stone-300 rounded-xl text-stone-600 tracking-wider font-semibold shadow-sm">ESC</kbd>
             <span>для возврата в архив</span>
           </div>
@@ -463,7 +474,7 @@ const ambientStyle = computed(() => {
         <div class="mb-14">
           <div class="flex items-center gap-5 mb-8">
             <div class="h-[2px] flex-1 bg-gradient-to-r from-transparent to-stone-300 rounded-full"></div>
-            <div class="flex items-center gap-5 text-xs uppercase tracking-[0.35em] font-sans font-bold" :style="{ color: getSelectedTypeInfo()?.accent }">
+            <div class="flex items-center gap-5 text-[11px] uppercase tracking-[0.35em] font-sans font-bold" :style="{ color: getSelectedTypeInfo()?.accent }">
               <span>{{ getSelectedTypeInfo()?.label }}</span>
             </div>
             <div class="h-[2px] flex-1 bg-gradient-to-l from-transparent to-stone-300 rounded-full"></div>
@@ -527,7 +538,7 @@ const ambientStyle = computed(() => {
 
             <!-- Enhanced Footer -->
             <div class="px-10 lg:px-14 pb-8 relative z-20">
-              <div class="pt-8 border-t-2 flex justify-between items-center text-[10px] uppercase tracking-[0.3em] font-sans transition-colors duration-500" :style="{ borderColor: getSelectedTypeInfo()?.accent + '30' }">
+              <div class="pt-8 border-t-2 flex justify-between items-center text-[11px] uppercase tracking-[0.3em] font-sans transition-colors duration-500" :style="{ borderColor: getSelectedTypeInfo()?.accent + '30' }">
                 <span class="text-stone-600 font-bold">Архив Gmazz</span>
                 <div class="flex items-center gap-6">
                   <span class="hidden sm:inline text-stone-500">Cmd+S для сохранения</span>
@@ -540,7 +551,7 @@ const ambientStyle = computed(() => {
 
         <!-- Keyboard Shortcuts -->
         <div class="text-center mt-12">
-          <div class="inline-flex items-center gap-6 text-xs text-stone-500 font-sans">
+          <div class="inline-flex items-center gap-6 text-[11px] text-stone-500 font-sans">
             <div class="flex items-center gap-2">
               <kbd class="px-3 py-1.5 bg-white/70 border border-stone-300 rounded-lg text-stone-600 tracking-wider font-semibold shadow-sm">Cmd</kbd>
               <span>+</span>

@@ -18,14 +18,14 @@ defineProps<{
         <div class="text-6xl font-mono font-light text-[#6B4423] tracking-wider mb-2">
           {{ note.metadata.time_signature }}
         </div>
-        <div class="text-[10px] uppercase tracking-[0.2em] text-[#4A3F2F] font-sans">
+        <div class="text-[11px] uppercase tracking-[0.2em] text-[#4A3F2F] font-sans">
           Time Signature
         </div>
       </div>
 
       <div v-else class="text-center">
         <div class="text-5xl text-[#A67C00]/40 mb-2">𝅘𝅥𝅮</div>
-        <div class="text-xs text-[#4A3F2F] font-sans uppercase tracking-wider">
+        <div class="text-[11px] text-[#4A3F2F] font-sans uppercase tracking-wider">
           Rhythm Pattern
         </div>
       </div>

@@ -12,6 +12,11 @@ const mouseX = ref(0.5);
 const mouseY = ref(0.5);
 const scrollY = ref(0);
 const time = ref(0);
+const isReducedMotion = ref(false);
+const isSmallScreen = ref(false);
+const isLightAmbient = ref(false);
+let motionMedia: MediaQueryList | null = null;
+let isAnimating = false;
 
 // Profile photo
 const isTauri = !!(window as any).__TAURI_INTERNALS__;
@@ -157,19 +162,24 @@ onMounted(async () => {
     loadProfilePhoto(),
     loadProfileData()
   ]);
-  window.addEventListener('mousemove', handleMouseMove, { passive: true });
+  const savedAmbient = localStorage.getItem('gmazz_light_ambient');
+  isLightAmbient.value = savedAmbient === '1';
+  updateMotionPrefs();
+  window.addEventListener('resize', updateMotionPrefs, { passive: true });
+  if (motionMedia) {
+    motionMedia.addEventListener('change', updateMotionPrefs);
+  }
   window.addEventListener('scroll', handleScroll, { passive: true });
-
-  const animate = () => {
-    time.value += 0.01;
-    animationFrame = requestAnimationFrame(animate);
-  };
-  animate();
+  syncAmbientMotion();
 });
 
 onUnmounted(() => {
   window.removeEventListener('mousemove', handleMouseMove);
   window.removeEventListener('scroll', handleScroll);
+  window.removeEventListener('resize', updateMotionPrefs);
+  if (motionMedia) {
+    motionMedia.removeEventListener('change', updateMotionPrefs);
+  }
   if (animationFrame) cancelAnimationFrame(animationFrame);
 });
 
@@ -182,6 +192,40 @@ function handleMouseMove(e: MouseEvent) {
 
 function handleScroll() {
   scrollY.value = window.scrollY;
+}
+
+function updateMotionPrefs() {
+  if (!motionMedia) {
+    motionMedia = window.matchMedia('(prefers-reduced-motion: reduce)');
+  }
+  isReducedMotion.value = motionMedia.matches;
+  isSmallScreen.value = window.innerWidth < 768;
+  syncAmbientMotion();
+}
+
+function syncAmbientMotion() {
+  const wantsMotion = !isReducedMotion.value && !isLightAmbient.value;
+  if (wantsMotion) {
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    if (!isAnimating) {
+      isAnimating = true;
+      const animate = () => {
+        time.value += 0.01;
+        animationFrame = requestAnimationFrame(animate);
+      };
+      animate();
+    }
+  } else {
+    window.removeEventListener('mousemove', handleMouseMove);
+    if (animationFrame) cancelAnimationFrame(animationFrame);
+    isAnimating = false;
+  }
+}
+
+function toggleLightAmbient() {
+  isLightAmbient.value = !isLightAmbient.value;
+  localStorage.setItem('gmazz_light_ambient', isLightAmbient.value ? '1' : '0');
+  syncAmbientMotion();
 }
 
 function openNote(note: Note) {
@@ -209,14 +253,21 @@ function truncate(text: string, len: number): string {
   return text.length > len ? text.slice(0, len) + '…' : text;
 }
 
-const ambientStyle = computed(() => ({
-  background: `
-    radial-gradient(ellipse 100% 70% at ${30 + mouseX.value * 25}% ${20 + mouseY.value * 25}%, rgba(255, 225, 190, 0.25) 0%, transparent 65%),
-    radial-gradient(ellipse 80% 60% at ${70 - mouseX.value * 20}% ${60 + mouseY.value * 20}%, rgba(210, 190, 170, 0.18) 0%, transparent 65%),
-    radial-gradient(ellipse 60% 50% at ${50 + Math.sin(time.value) * 15}% ${50 + Math.cos(time.value * 0.8) * 15}%, rgba(255, 240, 220, 0.15) 0%, transparent 55%),
-    linear-gradient(180deg, #FAF6F2 0%, #F6F1EC 30%, #F3EDE6 70%, #F0E8E0 100%)
-  `
-}));
+const ambientStyle = computed(() => {
+  if (isReducedMotion.value || isLightAmbient.value) {
+    return {
+      background: 'linear-gradient(180deg, #FAF6F2 0%, #F6F1EC 35%, #F3EDE6 70%, #F0E8E0 100%)'
+    };
+  }
+  return {
+    background: `
+      radial-gradient(ellipse 100% 70% at ${30 + mouseX.value * 25}% ${20 + mouseY.value * 25}%, rgba(255, 225, 190, 0.25) 0%, transparent 65%),
+      radial-gradient(ellipse 80% 60% at ${70 - mouseX.value * 20}% ${60 + mouseY.value * 20}%, rgba(210, 190, 170, 0.18) 0%, transparent 65%),
+      radial-gradient(ellipse 60% 50% at ${50 + Math.sin(time.value) * 15}% ${50 + Math.cos(time.value * 0.8) * 15}%, rgba(255, 240, 220, 0.15) 0%, transparent 55%),
+      linear-gradient(180deg, #FAF6F2 0%, #F6F1EC 30%, #F3EDE6 70%, #F0E8E0 100%)
+    `
+  };
+});
 
 const headerOpacity = computed(() => Math.min(scrollY.value / 100, 1));
 const parallaxOffset = computed(() => scrollY.value * 0.5);
@@ -234,13 +285,38 @@ function getCardSize(index: number) {
 
 // Musical notation elements for decoration
 const musicalNotes = ['𝅝', '𝅗𝅥', '𝅘𝅥', '𝅘𝅥𝅮', '𝅘𝅥𝅯', '♩', '♪', '♫', '♬'];
+const floatingNotesCount = computed(() => (isReducedMotion.value || isSmallScreen.value ? 12 : 40));
+
+function getCardChips(note: Note): string[] {
+  const chips: string[] = [];
+
+  if (note.note_type === 'thought') {
+    if (note.metadata?.tags?.length) {
+      chips.push(...note.metadata.tags.slice(0, 2).map(tag => `#${tag}`));
+    }
+  } else if (note.note_type === 'harmony') {
+    if (note.metadata?.chord_symbol) chips.push(`аккорд ${note.metadata.chord_symbol}`);
+    if (note.metadata?.key) chips.push(`тон ${note.metadata.key}`);
+  } else if (note.note_type === 'phrase') {
+    if (note.metadata?.file_path) chips.push('аудио');
+    if (note.metadata?.duration) chips.push(`${note.metadata.duration}с`);
+  } else if (note.note_type === 'rhythm') {
+    if (note.metadata?.time_signature) chips.push(`размер ${note.metadata.time_signature}`);
+    if (note.metadata?.mood) chips.push(note.metadata.mood);
+  } else if (note.note_type === 'score') {
+    if (note.metadata?.key) chips.push(`тон ${note.metadata.key}`);
+    if (note.metadata?.audio_path) chips.push('аудио');
+  }
+
+  return chips.slice(0, 3);
+}
 </script>
 
 <template>
   <div class="min-h-screen overflow-x-hidden" :style="ambientStyle">
 
     <!-- Enhanced Atmospheric Layers with Musical Theme -->
-    <div class="fixed inset-0 pointer-events-none overflow-hidden">
+    <div v-if="!isReducedMotion && !isLightAmbient" class="fixed inset-0 pointer-events-none overflow-hidden">
       <!-- Primary warm glow -->
       <div
           class="absolute -top-1/3 -left-1/4 w-[1200px] h-[1200px] rounded-full opacity-60 will-change-transform blur-[100px]"
@@ -283,9 +359,9 @@ const musicalNotes = ['𝅝', '𝅗𝅥', '𝅘𝅥', '𝅘𝅥𝅮', '𝅘𝅥�
     </div>
 
     <!-- Enhanced Floating Musical Notes -->
-    <div class="fixed inset-0 pointer-events-none overflow-hidden">
+    <div v-if="!isReducedMotion && !isSmallScreen && !isLightAmbient" class="fixed inset-0 pointer-events-none overflow-hidden">
       <div
-          v-for="i in 40"
+          v-for="i in floatingNotesCount"
           :key="i"
           class="absolute will-change-transform font-serif"
           :class="i % 4 === 0 ? 'text-3xl' : i % 4 === 1 ? 'text-2xl' : i % 4 === 2 ? 'text-xl' : 'text-lg'"
@@ -325,11 +401,21 @@ const musicalNotes = ['𝅝', '𝅗𝅥', '𝅘𝅥', '𝅘𝅥𝅮', '𝅘𝅥�
           </div>
           <div>
             <span class="text-xl font-semibold text-stone-700 group-hover:text-amber-700 transition-colors duration-300 tracking-tight">Gmazz</span>
-            <span class="text-[9px] text-stone-400 block -mt-0.5 tracking-[0.25em] uppercase font-medium">личный архив</span>
+            <span class="text-[11px] text-stone-400 block -mt-0.5 tracking-[0.25em] uppercase font-medium">личный архив</span>
           </div>
         </div>
 
         <nav class="flex items-center gap-3">
+          <button
+              @click="toggleLightAmbient"
+              class="relative text-sm text-stone-500 hover:text-amber-700 transition-all duration-300 flex items-center gap-2.5 px-4 py-2.5 rounded-xl hover:bg-white/70 overflow-hidden group backdrop-blur-sm"
+              :aria-pressed="isLightAmbient"
+              title="Лёгкий фон"
+          >
+            <div class="absolute inset-0 bg-gradient-to-r from-amber-200/0 via-amber-200/60 to-amber-200/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+            <span class="text-amber-600 relative text-base">{{ isLightAmbient ? '☀︎' : '☾' }}</span>
+            <span class="relative font-medium">{{ isLightAmbient ? 'полный фон' : 'лёгкий фон' }}</span>
+          </button>
           <button
               @click="openRandomNote"
               class="relative text-sm text-stone-500 hover:text-amber-700 transition-all duration-300 flex items-center gap-2.5 px-5 py-2.5 rounded-xl hover:bg-white/70 overflow-hidden group backdrop-blur-sm"
@@ -383,7 +469,7 @@ const musicalNotes = ['𝅝', '𝅗𝅥', '𝅘𝅥', '𝅘𝅥𝅮', '𝅘𝅥�
                 <template v-else>
                   <div class="absolute inset-0 flex flex-col items-center justify-center text-stone-400">
                     <div class="text-6xl mb-2 opacity-30 font-serif">𝄞</div>
-                    <span class="text-xs uppercase tracking-widest opacity-50">Фото</span>
+                    <span class="text-[11px] uppercase tracking-widest opacity-50">Фото</span>
                   </div>
                 </template>
 
@@ -422,8 +508,9 @@ const musicalNotes = ['𝅝', '𝅗𝅥', '𝅘𝅥', '𝅘𝅥𝅮', '𝅘𝅥�
                   v-if="isTauri"
                   v-model="profileData.firstName"
                   @change="saveProfileField('profile_firstname', profileData.firstName)"
-                  class="bg-transparent border-b border-transparent hover:border-amber-300 focus:border-amber-500 focus:outline-none transition-all min-w-[1ch] w-auto max-w-full"
+                  class="bg-transparent border-b border-transparent hover:border-amber-300 focus:border-amber-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/60 transition-all min-w-[1ch] w-auto max-w-full"
                   :style="{ width: profileData.firstName.length + 'ch' }"
+                  aria-label="Имя"
                 />
                 <span v-else class="inline-block hover:text-amber-700 transition-colors duration-700 drop-shadow-sm">{{ profileData.firstName }}</span>
 
@@ -431,8 +518,9 @@ const musicalNotes = ['𝅝', '𝅗𝅥', '𝅘𝅥', '𝅘𝅥𝅮', '𝅘𝅥�
                   v-if="isTauri"
                   v-model="profileData.lastName"
                   @change="saveProfileField('profile_lastname', profileData.lastName)"
-                  class="bg-transparent border-b border-transparent hover:border-amber-300 focus:border-amber-500 focus:outline-none transition-all min-w-[1ch] w-auto max-w-full"
+                  class="bg-transparent border-b border-transparent hover:border-amber-300 focus:border-amber-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/60 transition-all min-w-[1ch] w-auto max-w-full"
                   :style="{ width: profileData.lastName.length + 'ch' }"
+                  aria-label="Фамилия"
                 />
                 <span v-else class="inline-block hover:text-amber-700 transition-colors duration-700 drop-shadow-sm">{{ profileData.lastName }}</span>
               </div>
@@ -441,7 +529,8 @@ const musicalNotes = ['𝅝', '𝅗𝅥', '𝅘𝅥', '𝅘𝅥𝅮', '𝅘𝅥�
                 v-if="isTauri"
                 v-model="profileData.role"
                 @change="saveProfileField('profile_role', profileData.role)"
-                class="text-stone-400 mt-4 text-6xl lg:text-7xl bg-transparent border-b border-transparent hover:border-stone-300 focus:border-stone-500 focus:outline-none transition-all w-full"
+                class="text-stone-400 mt-4 text-6xl lg:text-7xl bg-transparent border-b border-transparent hover:border-stone-300 focus:border-stone-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-300/60 transition-all w-full"
+                aria-label="Роль"
               />
               <span v-else class="block text-stone-400 mt-4 text-6xl lg:text-7xl hover:text-stone-500 transition-colors duration-700">{{ profileData.role }}</span>
             </h1>
@@ -452,7 +541,8 @@ const musicalNotes = ['𝅝', '𝅗𝅥', '𝅘𝅥', '𝅘𝅥𝅮', '𝅘𝅥�
                 v-model="profileData.description"
                 @change="saveProfileField('profile_description', profileData.description)"
                 rows="3"
-                class="w-full bg-transparent border-l-2 border-transparent hover:border-amber-300 focus:border-amber-500 focus:outline-none transition-all resize-none"
+                class="w-full bg-transparent border-l-2 border-transparent hover:border-amber-300 focus:border-amber-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/60 transition-all resize-none"
+                aria-label="Описание"
               ></textarea>
               <p v-else>
                 {{ profileData.description }}
@@ -466,19 +556,19 @@ const musicalNotes = ['𝅝', '𝅗𝅥', '𝅘𝅥', '𝅘𝅥𝅮', '𝅘𝅥�
                 <span class="block text-6xl font-light text-stone-700 group-hover:text-amber-700 transition-all duration-700 group-hover:scale-110 relative drop-shadow-sm">
                   {{ store.notes.length || '—' }}
                 </span>
-                <span class="text-[10px] text-stone-400 uppercase tracking-[0.25em] mt-3 block font-semibold">записей</span>
+                <span class="text-[11px] text-stone-400 uppercase tracking-[0.25em] mt-3 block font-semibold">записей</span>
               </div>
               <div class="w-[2px] h-14 bg-gradient-to-b from-transparent via-stone-300 to-transparent rounded-full" />
               <div class="group text-center relative cursor-default">
                 <div class="absolute inset-0 bg-gradient-to-br from-amber-300/25 to-transparent rounded-3xl blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
                 <span class="block text-6xl font-light text-stone-700 group-hover:text-amber-700 transition-all duration-700 group-hover:scale-110 relative drop-shadow-sm">5</span>
-                <span class="text-[10px] text-stone-400 uppercase tracking-[0.25em] mt-3 block font-semibold">типов</span>
+                <span class="text-[11px] text-stone-400 uppercase tracking-[0.25em] mt-3 block font-semibold">типов</span>
               </div>
               <div class="w-[2px] h-14 bg-gradient-to-b from-transparent via-stone-300 to-transparent rounded-full" />
               <div class="group text-center relative cursor-default">
                 <div class="absolute inset-0 bg-gradient-to-br from-amber-300/25 to-transparent rounded-3xl blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
                 <span class="block text-6xl font-light text-stone-700 group-hover:text-amber-700 transition-all duration-700 group-hover:scale-110 relative drop-shadow-sm">В наше время</span>
-                <span class="text-[10px] text-stone-400 uppercase tracking-[0.25em] mt-3 block font-semibold">начало</span>
+                <span class="text-[11px] text-stone-400 uppercase tracking-[0.25em] mt-3 block font-semibold">начало</span>
               </div>
             </div>
           </div>
@@ -573,7 +663,7 @@ const musicalNotes = ['𝅝', '𝅗𝅥', '𝅘𝅥', '𝅘𝅥𝅮', '𝅘𝅥�
       <div class="max-w-7xl mx-auto">
 
         <div class="flex items-center justify-between mb-16">
-          <h2 class="text-xs uppercase tracking-[0.3em] text-stone-400 font-bold">Коллекция работ</h2>
+            <h2 class="text-[11px] uppercase tracking-[0.3em] text-stone-400 font-bold">Коллекция работ</h2>
           <div class="h-[2px] flex-1 mx-10 relative overflow-hidden rounded-full">
             <div class="absolute inset-0 bg-gradient-to-r from-stone-300 via-stone-200 to-transparent" />
             <div class="absolute inset-0 bg-gradient-to-r from-amber-300 to-transparent translate-x-[-100%] animate-shimmer-slow" />
@@ -656,11 +746,22 @@ const musicalNotes = ['𝅝', '𝅗𝅥', '𝅘𝅥', '𝅘𝅥𝅮', '𝅘𝅥�
                     <span class="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent" />
                     <span class="relative drop-shadow-sm">{{ typeConfig[note.note_type].icon }}</span>
                   </span>
-                  <span class="text-xs font-bold uppercase tracking-[0.18em] group-hover:tracking-[0.25em] transition-all duration-500" :style="{ color: typeConfig[note.note_type].accent }">
+                  <span class="text-[11px] font-bold uppercase tracking-[0.18em] group-hover:tracking-[0.25em] transition-all duration-500" :style="{ color: typeConfig[note.note_type].accent }">
                     {{ typeConfig[note.note_type].name }}
                   </span>
-                  <span class="text-xs text-stone-400 ml-auto font-mono tabular-nums group-hover:text-stone-600 transition-colors">
+                  <span class="text-[11px] text-stone-400 ml-auto font-mono tabular-nums group-hover:text-stone-600 transition-colors">
                     {{ formatDate(note.created_at) }}
+                  </span>
+                </div>
+
+                <div v-if="getCardChips(note).length" class="flex flex-wrap gap-2 mb-6">
+                  <span
+                      v-for="(chip, chipIndex) in getCardChips(note)"
+                      :key="note.id + '-' + chipIndex"
+                      class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] uppercase tracking-[0.18em] font-semibold bg-white/70 border border-white/70 shadow-sm"
+                      :style="{ color: typeConfig[note.note_type].accent, borderColor: typeConfig[note.note_type].accent + '35' }"
+                  >
+                    {{ chip }}
                   </span>
                 </div>
 
@@ -679,7 +780,7 @@ const musicalNotes = ['𝅝', '𝅗𝅥', '𝅘𝅥', '𝅘𝅥𝅮', '𝅘𝅥�
                       <pre class="font-mono text-sm text-stone-600 whitespace-pre-wrap leading-loose group-hover:text-stone-800 transition-colors">{{ truncate(note.content, getCardSize(index).truncateLength) }}</pre>
                     </div>
                     <div v-if="note.metadata?.chord_symbol" class="mt-6 flex items-center gap-3">
-                      <span class="text-xs text-stone-400 uppercase tracking-wider font-semibold">аккорд:</span>
+                      <span class="text-[11px] text-stone-400 uppercase tracking-wider font-semibold">аккорд:</span>
                       <span class="text-xl font-mono font-bold text-stone-700 px-4 py-1.5 bg-white/70 rounded-xl shadow-md">{{ note.metadata.chord_symbol }}</span>
                     </div>
                   </div>
@@ -728,7 +829,7 @@ const musicalNotes = ['𝅝', '𝅗𝅥', '𝅘𝅥', '𝅘𝅥𝅮', '𝅘𝅥�
                       <div class="flex-1">
                         <p class="text-stone-500 leading-relaxed group-hover:text-stone-700 transition-colors duration-700 text-lg">{{ truncate(note.content, 150) }}</p>
                         <div v-if="note.metadata?.mood" class="mt-6">
-                          <span class="text-xs px-5 py-2 rounded-full bg-white/90 text-stone-600 font-bold shadow-md border border-stone-200/50">
+                          <span class="text-[11px] px-5 py-2 rounded-full bg-white/90 text-stone-600 font-bold shadow-md border border-stone-200/50">
                             {{ note.metadata.mood }}
                           </span>
                         </div>
@@ -762,7 +863,7 @@ const musicalNotes = ['𝅝', '𝅗𝅥', '𝅘𝅥', '𝅘𝅥𝅮', '𝅘𝅥�
                       </div>
                       <p class="text-stone-500 text-base leading-relaxed group-hover:text-stone-700 transition-colors duration-700">{{ truncate(note.content, 130) }}</p>
                     </div>
-                    <div v-if="note.metadata?.key" class="mt-6 text-xs text-stone-400">
+                    <div v-if="note.metadata?.key" class="mt-6 text-[11px] text-stone-400">
                       Тональность: <span class="text-stone-700 font-bold text-sm">{{ note.metadata.key }}</span>
                     </div>
                   </div>
@@ -770,9 +871,9 @@ const musicalNotes = ['𝅝', '𝅗𝅥', '𝅘𝅥', '𝅘𝅥𝅮', '𝅘𝅥�
 
                 <!-- Enhanced Footer -->
                 <div class="flex items-center justify-between mt-7 pt-7 border-t border-stone-200/80 group-hover:border-stone-300/90 transition-colors duration-700">
-                  <span class="text-xs text-stone-400 font-mono tracking-wider group-hover:text-stone-500 transition-colors duration-500 tabular-nums">#{{ note.id.substring(0, 8) }}</span>
+                  <span class="text-[11px] text-stone-400 font-mono tracking-wider group-hover:text-stone-500 transition-colors duration-500 tabular-nums">#{{ note.id.substring(0, 8) }}</span>
                   <span
-                      class="text-xs font-bold opacity-0 group-hover:opacity-100 transition-all duration-700 flex items-center gap-2.5 group-hover:translate-x-2"
+                      class="text-[11px] font-bold opacity-60 group-hover:opacity-100 transition-all duration-700 flex items-center gap-2.5 group-hover:translate-x-2"
                       :style="{ color: typeConfig[note.note_type].accent }"
                   >
                     открыть <span class="text-base animate-pulse-slow">→</span>
@@ -845,13 +946,14 @@ const musicalNotes = ['𝅝', '𝅗𝅥', '𝅘𝅥', '𝅘𝅥𝅮', '𝅘𝅥�
             <span class="text-5xl text-amber-400 group-hover:scale-125 group-hover:rotate-12 transition-all duration-700 font-serif drop-shadow-lg" :style="{ transform: `scale(${1 + Math.sin(time * 0.5) * 0.08})` }">𝄞</span>
             <div>
               <span class="text-stone-700 font-bold text-2xl group-hover:text-amber-700 transition-colors duration-500 tracking-tight">Gmazz</span>
-              <div class="text-xs text-stone-400 block tracking-[0.25em] uppercase mt-1 font-semibold flex items-center gap-1">
+              <div class="text-[11px] text-stone-400 block tracking-[0.25em] uppercase mt-1 font-semibold flex items-center gap-1">
                 <span>архив</span>
                 <input
                   v-if="isTauri"
                   v-model="profileData.startYear"
                   @change="saveProfileField('archive_start_year', profileData.startYear)"
-                  class="bg-transparent w-12 border-b border-stone-200 focus:border-amber-500 outline-none text-center"
+                  class="bg-transparent w-12 border-b border-stone-200 focus:border-amber-500 outline-none focus-visible:ring-2 focus-visible:ring-amber-200/60 text-center"
+                  aria-label="Год начала архива"
                 />
                 <span v-else>{{ profileData.startYear }}</span>
                 <span>—{{ new Date().getFullYear() }}</span>
@@ -865,7 +967,8 @@ const musicalNotes = ['𝅝', '𝅗𝅥', '𝅘𝅥', '𝅘𝅥𝅮', '𝅘𝅥�
               v-model="profileData.quote"
               @change="saveProfileField('profile_quote', profileData.quote)"
               rows="2"
-              class="w-full bg-transparent border-none focus:ring-0 text-right resize-none outline-none"
+              class="w-full bg-transparent border-none focus:ring-0 focus-visible:ring-2 focus-visible:ring-amber-200/60 text-right resize-none outline-none"
+              aria-label="Цитата"
             ></textarea>
             <span v-else>{{ profileData.quote }}</span>
             <span class="absolute -bottom-6 -right-6 text-5xl text-amber-300/40 font-serif">"</span>
