@@ -20,6 +20,7 @@ let isAnimating = false;
 
 // Profile photo
 const isTauri = !!(window as any).__TAURI_INTERNALS__;
+const canEditSettings = computed(() => isTauri);
 const profilePhotoUrl = ref<string>('');
 const isPhotoHovered = ref(false);
 const isUploadingPhoto = ref(false);
@@ -34,6 +35,16 @@ const profileData = ref({
   quote: 'Музыка — это то, что происходит между нотами',
   startYear: '1974'
 });
+
+const maestroBlock = ref({
+  title: 'Архив Маэстро',
+  headline: 'Живая хроника творчества — от первых рукописей до зрелых партитур',
+  description: 'Здесь собраны мысли, гармонии, фразы и партитуры музыканта с огромным опытом. Каждый лист — след развития стиля, ремесла и внутреннего слуха.',
+  cta: '+ создать запись'
+});
+
+const featuredNoteIds = ref<string[]>([]);
+const isEditingFeatured = ref(false);
 
 async function loadProfileData() {
   try {
@@ -58,11 +69,59 @@ async function loadProfileData() {
 }
 
 async function saveProfileField(key: string, value: string) {
-  if (!isTauri) return;
+  if (!canEditSettings.value) return;
   try {
     await setSetting(key, value);
   } catch (e) {
     console.error(`Failed to save ${key}`, e);
+  }
+}
+
+async function loadMaestroBlock() {
+  try {
+    const [title, headline, description, cta, featured] = await Promise.all([
+      getSetting('maestro_title'),
+      getSetting('maestro_headline'),
+      getSetting('maestro_description'),
+      getSetting('maestro_cta'),
+      getSetting('featured_note_ids')
+    ]);
+
+    if (title) maestroBlock.value.title = title;
+    if (headline) maestroBlock.value.headline = headline;
+    if (description) maestroBlock.value.description = description;
+    if (cta) maestroBlock.value.cta = cta;
+
+    if (featured) {
+      try {
+        const parsed = JSON.parse(featured);
+        if (Array.isArray(parsed)) {
+          featuredNoteIds.value = parsed.filter((id) => typeof id === 'string');
+        }
+      } catch {
+        featuredNoteIds.value = [];
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load maestro block', e);
+  }
+}
+
+async function saveMaestroField(key: string, value: string) {
+  if (!canEditSettings.value) return;
+  try {
+    await setSetting(key, value);
+  } catch (e) {
+    console.error(`Failed to save ${key}`, e);
+  }
+}
+
+async function persistFeaturedNotes() {
+  if (!canEditSettings.value) return;
+  try {
+    await setSetting('featured_note_ids', JSON.stringify(featuredNoteIds.value));
+  } catch (e) {
+    console.error('Failed to save featured notes', e);
   }
 }
 
@@ -160,7 +219,8 @@ onMounted(async () => {
   await Promise.all([
     store.fetchNotes(),
     loadProfilePhoto(),
-    loadProfileData()
+    loadProfileData(),
+    loadMaestroBlock()
   ]);
   const savedAmbient = localStorage.getItem('gmazz_light_ambient');
   isLightAmbient.value = savedAmbient === '1';
@@ -286,6 +346,35 @@ function getCardSize(index: number) {
 // Musical notation elements for decoration
 const musicalNotes = ['𝅝', '𝅗𝅥', '𝅘𝅥', '𝅘𝅥𝅮', '𝅘𝅥𝅯', '♩', '♪', '♫', '♬'];
 const floatingNotesCount = computed(() => (isReducedMotion.value || isSmallScreen.value ? 12 : 40));
+
+const featuredNotes = computed(() => {
+  const notes = store.filteredNotes || [];
+  if (featuredNoteIds.value.length > 0) {
+    const byId = new Map(notes.map(note => [note.id, note]));
+    return featuredNoteIds.value.map(id => byId.get(id)).filter(Boolean) as Note[];
+  }
+  const score = notes.find(n => n.note_type === 'score');
+  const phrase = notes.find(n => n.note_type === 'phrase');
+  const harmony = notes.find(n => n.note_type === 'harmony');
+  return [score, phrase, harmony].filter(Boolean) as Note[];
+});
+
+const thoughtHighlights = computed(() => {
+  const notes = store.filteredNotes || [];
+  return notes.filter(n => n.note_type === 'thought').slice(0, 3);
+});
+
+const selectableNotes = computed(() => store.filteredNotes.slice(0, 30));
+
+function toggleFeatured(noteId: string) {
+  const index = featuredNoteIds.value.indexOf(noteId);
+  if (index >= 0) {
+    featuredNoteIds.value.splice(index, 1);
+  } else {
+    featuredNoteIds.value.push(noteId);
+  }
+  persistFeaturedNotes();
+}
 
 function getCardChips(note: Note): string[] {
   const chips: string[] = [];
@@ -452,7 +541,7 @@ function getCardChips(note: Note): string[] {
           <div class="lg:hidden flex justify-center mb-8">
             <div
                 class="relative group/photo-mobile"
-                @click="isTauri ? triggerPhotoUpload() : null"
+                @click="canEditSettings ? triggerPhotoUpload() : null"
             >
               <!-- Decorative frame -->
               <div class="absolute -inset-3 bg-gradient-to-br from-amber-200/40 to-amber-50/40 rounded-[2rem] blur-xl opacity-80" />
@@ -478,7 +567,7 @@ function getCardChips(note: Note): string[] {
 
                 <!-- Edit indicator for Tauri -->
                 <div
-                    v-if="isTauri"
+                    v-if="canEditSettings"
                     class="absolute inset-0 bg-stone-900/0 active:bg-stone-900/40 transition-all duration-300 flex items-center justify-center"
                 >
                   <div class="opacity-0 active:opacity-100 transition-opacity">
@@ -505,7 +594,7 @@ function getCardChips(note: Note): string[] {
             <h1 class="text-7xl lg:text-8xl font-light text-stone-800 leading-[0.95] mb-10 tracking-tight flex flex-col items-start gap-2">
               <div class="flex items-baseline gap-4 flex-wrap">
                 <input
-                  v-if="isTauri"
+                  v-if="canEditSettings"
                   v-model="profileData.firstName"
                   @change="saveProfileField('profile_firstname', profileData.firstName)"
                   class="bg-transparent border-b border-transparent hover:border-amber-300 focus:border-amber-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/60 transition-all min-w-[1ch] w-auto max-w-full"
@@ -515,7 +604,7 @@ function getCardChips(note: Note): string[] {
                 <span v-else class="inline-block hover:text-amber-700 transition-colors duration-700 drop-shadow-sm">{{ profileData.firstName }}</span>
 
                 <input
-                  v-if="isTauri"
+                  v-if="canEditSettings"
                   v-model="profileData.lastName"
                   @change="saveProfileField('profile_lastname', profileData.lastName)"
                   class="bg-transparent border-b border-transparent hover:border-amber-300 focus:border-amber-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/60 transition-all min-w-[1ch] w-auto max-w-full"
@@ -526,7 +615,7 @@ function getCardChips(note: Note): string[] {
               </div>
               
               <input
-                v-if="isTauri"
+                v-if="canEditSettings"
                 v-model="profileData.role"
                 @change="saveProfileField('profile_role', profileData.role)"
                 class="text-stone-400 mt-4 text-6xl lg:text-7xl bg-transparent border-b border-transparent hover:border-stone-300 focus:border-stone-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-300/60 transition-all w-full"
@@ -537,7 +626,7 @@ function getCardChips(note: Note): string[] {
 
             <div class="text-2xl lg:text-[26px] text-stone-500 leading-relaxed max-w-2xl">
               <textarea
-                v-if="isTauri"
+                v-if="canEditSettings"
                 v-model="profileData.description"
                 @change="saveProfileField('profile_description', profileData.description)"
                 rows="3"
@@ -628,7 +717,7 @@ function getCardChips(note: Note): string[] {
 
                 <!-- Edit overlay (only in Tauri mode) -->
                 <div
-                    v-if="isTauri"
+                    v-if="canEditSettings"
                     class="absolute inset-0 bg-stone-900/0 group-hover/photo:bg-stone-900/40 transition-all duration-500 flex items-center justify-center cursor-pointer"
                     @click="triggerPhotoUpload"
                 >
@@ -652,6 +741,192 @@ function getCardChips(note: Note): string[] {
               <div class="absolute -top-6 -right-2 text-3xl text-amber-300/40 animate-float font-serif" style="animation-delay: 0.2s;">♪</div>
               <div class="absolute -bottom-4 -left-4 text-4xl text-amber-300/30 animate-float font-serif" style="animation-delay: 0.8s;">♫</div>
               <div class="absolute top-1/2 -right-8 text-2xl text-amber-200/40 animate-float font-serif" style="animation-delay: 1.4s;">𝅘𝅥𝅮</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Maestro Showcase -->
+    <section class="relative px-8 lg:px-16 pb-28">
+      <div class="max-w-7xl mx-auto">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-stretch">
+          <div class="lg:col-span-5">
+            <div class="rounded-[28px] bg-white/90 border border-stone-200/80 shadow-2xl overflow-hidden">
+              <div class="p-8 lg:p-10 relative">
+                <div class="absolute inset-0 bg-gradient-to-br from-amber-100/20 via-transparent to-transparent pointer-events-none" />
+                <div class="relative z-10">
+                  <div class="flex items-center justify-between mb-6">
+                  <div class="flex items-center gap-3">
+                    <span class="text-2xl text-amber-500 font-serif">𝄞</span>
+                      <template v-if="canEditSettings">
+                        <input
+                            v-model="maestroBlock.title"
+                            @change="saveMaestroField('maestro_title', maestroBlock.title)"
+                            class="bg-transparent text-[11px] uppercase tracking-[0.3em] text-stone-400 font-bold focus:outline-none"
+                            aria-label="Заголовок блока архива маэстро"
+                        />
+                      </template>
+                      <span v-else class="text-[11px] uppercase tracking-[0.3em] text-stone-400 font-bold">{{ maestroBlock.title }}</span>
+                  </div>
+                    <button
+                        v-if="canEditSettings"
+                        @click="isEditingFeatured = !isEditingFeatured"
+                        class="text-[11px] uppercase tracking-[0.25em] text-stone-400 hover:text-amber-600 transition-colors font-semibold"
+                    >
+                      {{ isEditingFeatured ? 'готово' : 'редактировать' }}
+                    </button>
+                  </div>
+                  <h2 class="text-3xl lg:text-4xl text-stone-800 font-light leading-snug">
+                    <template v-if="canEditSettings">
+                      <textarea
+                          v-model="maestroBlock.headline"
+                          @change="saveMaestroField('maestro_headline', maestroBlock.headline)"
+                          rows="2"
+                          class="w-full bg-transparent border-l-2 border-transparent hover:border-amber-300 focus:border-amber-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/60 transition-all resize-none"
+                          aria-label="Заголовок архива маэстро"
+                      ></textarea>
+                    </template>
+                    <template v-else>
+                      {{ maestroBlock.headline }}
+                    </template>
+                  </h2>
+                  <p class="text-lg text-stone-500 leading-relaxed mt-5">
+                    <template v-if="canEditSettings">
+                      <textarea
+                          v-model="maestroBlock.description"
+                          @change="saveMaestroField('maestro_description', maestroBlock.description)"
+                          rows="4"
+                          class="w-full bg-transparent border-l-2 border-transparent hover:border-amber-300 focus:border-amber-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/60 transition-all resize-none"
+                          aria-label="Описание архива маэстро"
+                      ></textarea>
+                    </template>
+                    <template v-else>
+                      {{ maestroBlock.description }}
+                    </template>
+                  </p>
+                  <div class="mt-8 flex flex-wrap items-center gap-4">
+                    <template v-if="canEditSettings">
+                      <input
+                          v-model="maestroBlock.cta"
+                          @change="saveMaestroField('maestro_cta', maestroBlock.cta)"
+                          class="bg-white/80 border border-stone-200/60 rounded-xl px-4 py-2 text-sm text-stone-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/60"
+                          aria-label="Текст кнопки архива маэстро"
+                      />
+                      <button
+                          @click="openCreate"
+                          class="relative text-sm text-stone-700 bg-white hover:bg-stone-50 px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-500 border border-stone-200/60"
+                      >
+                        {{ maestroBlock.cta }}
+                      </button>
+                    </template>
+                    <button
+                        v-else
+                        @click="openCreate"
+                        class="relative text-sm text-stone-700 bg-white hover:bg-stone-50 px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-500 border border-stone-200/60"
+                    >
+                      {{ maestroBlock.cta }}
+                    </button>
+                    <div class="text-[11px] uppercase tracking-[0.3em] text-stone-400 font-semibold">
+                      {{ profileData.startYear }} — {{ new Date().getFullYear() }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="px-8 lg:px-10 pb-10">
+                <div class="grid grid-cols-3 gap-4">
+                  <div class="rounded-2xl bg-stone-50 border border-stone-200/70 p-4 text-center">
+                    <div class="text-2xl font-light text-stone-700">{{ store.notes.length || '—' }}</div>
+                    <div class="text-[11px] uppercase tracking-[0.25em] text-stone-400 font-semibold mt-2">записей</div>
+                  </div>
+                  <div class="rounded-2xl bg-stone-50 border border-stone-200/70 p-4 text-center">
+                    <div class="text-2xl font-light text-stone-700">5</div>
+                    <div class="text-[11px] uppercase tracking-[0.25em] text-stone-400 font-semibold mt-2">жанров</div>
+                  </div>
+                  <div class="rounded-2xl bg-stone-50 border border-stone-200/70 p-4 text-center">
+                    <div class="text-2xl font-light text-stone-700">∞</div>
+                    <div class="text-[11px] uppercase tracking-[0.25em] text-stone-400 font-semibold mt-2">мотивов</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="lg:col-span-7">
+            <div class="rounded-[28px] bg-white/80 border border-stone-200/70 shadow-2xl p-8 lg:p-10 h-full">
+              <div class="flex items-center justify-between mb-6">
+                <h3 class="text-[11px] uppercase tracking-[0.3em] text-stone-400 font-bold">Избранные произведения</h3>
+                <span class="text-stone-400 text-[11px] uppercase tracking-[0.3em] font-semibold">архив</span>
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <button
+                    v-for="note in featuredNotes"
+                    :key="note.id"
+                    @click="openNote(note)"
+                    class="group text-left rounded-2xl border border-stone-200/70 bg-white/90 hover:bg-white shadow-md hover:shadow-xl transition-all duration-500 p-5"
+                >
+                  <div class="flex items-center gap-3 mb-4">
+                    <span class="w-9 h-9 rounded-xl flex items-center justify-center text-base font-serif"
+                          :style="{ backgroundColor: typeConfig[note.note_type].accent + '25', color: typeConfig[note.note_type].accent }">
+                      {{ typeConfig[note.note_type].icon }}
+                    </span>
+                    <span class="text-[11px] uppercase tracking-[0.2em] font-semibold" :style="{ color: typeConfig[note.note_type].accent }">
+                      {{ typeConfig[note.note_type].name }}
+                    </span>
+                  </div>
+                  <div class="text-stone-700 text-base leading-relaxed line-clamp-3">
+                    {{ note.content || 'Без описания' }}
+                  </div>
+                  <div class="mt-4 text-[11px] uppercase tracking-[0.25em] text-stone-400 font-semibold">
+                    {{ formatDate(note.created_at) }}
+                  </div>
+                </button>
+              </div>
+
+              <div v-if="canEditSettings && isEditingFeatured" class="mt-8 pt-6 border-t border-stone-200/70">
+                <div class="text-[11px] uppercase tracking-[0.25em] text-stone-400 font-semibold mb-4">Выбрать избранные</div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <label
+                      v-for="note in selectableNotes"
+                      :key="note.id"
+                      class="flex items-center gap-3 p-3 rounded-xl bg-white/90 border border-stone-200/70 hover:border-amber-300/60 transition-colors cursor-pointer"
+                  >
+                    <input
+                        type="checkbox"
+                        class="accent-amber-500"
+                        :checked="featuredNoteIds.includes(note.id)"
+                        @change="toggleFeatured(note.id)"
+                    />
+                    <span
+                        class="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-serif"
+                        :style="{ backgroundColor: typeConfig[note.note_type].accent + '25', color: typeConfig[note.note_type].accent }"
+                    >
+                      {{ typeConfig[note.note_type].icon }}
+                    </span>
+                    <span class="text-sm text-stone-700 line-clamp-2">
+                      {{ note.content || 'Без описания' }}
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div v-if="thoughtHighlights.length" class="mt-10 pt-8 border-t border-stone-200/70">
+                <div class="flex items-center gap-3 mb-6">
+                  <span class="text-2xl text-amber-500 font-serif">❧</span>
+                  <h3 class="text-[11px] uppercase tracking-[0.3em] text-stone-400 font-bold">Мысли мастера</h3>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  <div
+                      v-for="note in thoughtHighlights"
+                      :key="note.id"
+                      class="rounded-2xl bg-stone-50 border border-stone-200/70 p-5"
+                  >
+                    <p class="text-stone-600 italic leading-relaxed line-clamp-4">
+                      «{{ note.content }}»
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -949,7 +1224,7 @@ function getCardChips(note: Note): string[] {
               <div class="text-[11px] text-stone-400 block tracking-[0.25em] uppercase mt-1 font-semibold flex items-center gap-1">
                 <span>архив</span>
                 <input
-                  v-if="isTauri"
+                  v-if="canEditSettings"
                   v-model="profileData.startYear"
                   @change="saveProfileField('archive_start_year', profileData.startYear)"
                   class="bg-transparent w-12 border-b border-stone-200 focus:border-amber-500 outline-none focus-visible:ring-2 focus-visible:ring-amber-200/60 text-center"
@@ -963,7 +1238,7 @@ function getCardChips(note: Note): string[] {
           <div class="text-lg text-stone-500 italic text-center md:text-right max-w-lg leading-relaxed relative">
             <span class="absolute -top-6 -left-6 text-5xl text-amber-300/40 font-serif">"</span>
             <textarea
-              v-if="isTauri"
+              v-if="canEditSettings"
               v-model="profileData.quote"
               @change="saveProfileField('profile_quote', profileData.quote)"
               rows="2"
@@ -1154,5 +1429,19 @@ html {
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(196, 149, 106, 0.5);
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-4 {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 </style>
