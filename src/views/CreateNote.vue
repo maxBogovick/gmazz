@@ -22,9 +22,80 @@ const metadata = ref<NoteMetadata>({});
 const saveStatus = ref<'idle' | 'saving' | 'saved'>('idle');
 const autoSaveTimer = ref<number | null>(null);
 const pendingFileData = ref<{ name: string; data: number[] } | null>(null);
+const pendingAudioData = ref<{ name: string; data: number[] } | null>(null);
 const mouseX = ref(0.5);
 const mouseY = ref(0.5);
 const time = ref(0);
+
+async function handleAudioPath(fileName: string, fileData: number[]) {
+  pendingAudioData.value = { name: fileName, data: fileData };
+}
+
+async function saveNote() {
+  if (!selectedType.value || !content.value) return;
+
+  saveStatus.value = 'saving';
+
+  try {
+    if (pendingFileData.value) {
+      const fileType = selectedType.value === 'phrase' ? 'audio' : 'scores';
+      // Convert number[] back to Uint8Array then Blob then File
+      const uint8Array = new Uint8Array(pendingFileData.value.data);
+      const blob = new Blob([uint8Array]); 
+      const file = new File([blob], pendingFileData.value.name, { 
+          type: fileType === 'audio' ? 'audio/wav' : 'application/pdf' // inferred simplistic type
+      });
+      
+      const path = await uploadFile(file);
+      metadata.value.file_path = path;
+      pendingFileData.value = null;
+    }
+
+    if (pendingAudioData.value) {
+      const uint8Array = new Uint8Array(pendingAudioData.value.data);
+      const blob = new Blob([uint8Array]);
+      const file = new File([blob], pendingAudioData.value.name, { type: 'audio/wav' }); // simplistic
+      
+      const path = await uploadFile(file);
+      metadata.value.audio_path = path;
+      pendingAudioData.value = null;
+    }
+
+    if (editingNoteId.value) {
+      await store.updateNote(editingNoteId.value, {
+        content: content.value,
+        metadata: metadata.value,
+      });
+    } else {
+      await store.createNote({
+        note_type: selectedType.value,
+        content: content.value,
+        metadata: metadata.value,
+      });
+    }
+
+    saveStatus.value = 'saved';
+
+    setTimeout(() => {
+      goBack();
+    }, 300);
+  } catch (error) {
+    console.error('Failed to save note:', error);
+    saveStatus.value = 'idle';
+  }
+}
+
+function handleEditorSave() {
+  saveNote();
+}
+
+function updateTimeSignature(value: string) {
+  metadata.value = { ...metadata.value, time_signature: value };
+}
+
+function getSelectedTypeInfo() {
+  return noteTypes.find(t => t.type === selectedType.value);
+}
 
 const noteTypes: { type: NoteType; label: string; labelRu: string; description: string; icon: string; accent: string; gradient: string }[] = [
   {
@@ -130,10 +201,10 @@ watch([content, metadata], () => {
 function handleGlobalKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') {
     if (saveStatus.value === 'idle' && content.value) {
-       // Optional: confirm discard? 
-       // For now, just go back as per "no auto save". 
-       // User can stay and save if they want.
-       if(!confirm('Есть несохраненные изменения. Выйти без сохранения?')) return;
+      // Optional: confirm discard?
+      // For now, just go back as per "no auto save".
+      // User can stay and save if they want.
+      if(!confirm('Есть несохраненные изменения. Выйти без сохранения?')) return;
     }
     goBack();
   }
@@ -158,62 +229,6 @@ function goBack() {
 
 async function handleFilePath(fileName: string, fileData: number[]) {
   pendingFileData.value = { name: fileName, data: fileData };
-}
-
-async function saveNote() {
-  if (!selectedType.value || !content.value) return;
-
-  saveStatus.value = 'saving';
-
-  try {
-    if (pendingFileData.value) {
-      const fileType = selectedType.value === 'phrase' ? 'audio' : 'scores';
-      // Convert number[] back to Uint8Array then Blob then File
-      const uint8Array = new Uint8Array(pendingFileData.value.data);
-      const blob = new Blob([uint8Array]); 
-      const file = new File([blob], pendingFileData.value.name, { 
-          type: fileType === 'audio' ? 'audio/wav' : 'application/pdf' // inferred simplistic type
-      });
-      
-      const path = await uploadFile(file);
-      metadata.value.file_path = path;
-      pendingFileData.value = null;
-    }
-
-    if (editingNoteId.value) {
-      await store.updateNote(editingNoteId.value, {
-        content: content.value,
-        metadata: metadata.value,
-      });
-    } else {
-      await store.createNote({
-        note_type: selectedType.value,
-        content: content.value,
-        metadata: metadata.value,
-      });
-    }
-
-    saveStatus.value = 'saved';
-
-    setTimeout(() => {
-      goBack();
-    }, 300);
-  } catch (error) {
-    console.error('Failed to save note:', error);
-    saveStatus.value = 'idle';
-  }
-}
-
-function handleEditorSave() {
-  saveNote();
-}
-
-function updateTimeSignature(value: string) {
-  metadata.value = { ...metadata.value, time_signature: value };
-}
-
-function getSelectedTypeInfo() {
-  return noteTypes.find(t => t.type === selectedType.value);
 }
 
 const ambientStyle = computed(() => {
@@ -506,6 +521,7 @@ const ambientStyle = computed(() => {
                   @save="handleEditorSave"
                   @update:time-signature="updateTimeSignature"
                   @update:file-path="handleFilePath"
+                  @update:audio-path="handleAudioPath"
               />
             </div>
 

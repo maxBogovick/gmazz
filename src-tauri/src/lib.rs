@@ -42,23 +42,29 @@ pub fn run() {
             }
             // -----------------------
 
-            let db = tauri::async_runtime::block_on(async {
-                match database::init_database(app_data_dir.clone()).await {
+            let db_data_dir = app_data_dir.clone();
+            let db = tauri::async_runtime::block_on(async move {
+                match database::init_database(db_data_dir.clone()).await {
                     Ok(pool) => Ok(pool),
                     Err(_) => {
                         eprintln!("Database corrupted. backing up and recreating...");
-                        let db_path = app_data_dir.join("notebook.db");
-                        let backup_path = app_data_dir.join(format!("notebook.db.corrupt.{}", chrono::Utc::now().timestamp()));
+                        let db_path = db_data_dir.join("notebook.db");
+                        let backup_path = db_data_dir.join(format!("notebook.db.corrupt.{}", chrono::Utc::now().timestamp()));
                         if db_path.exists() {
                             let _ = std::fs::rename(&db_path, &backup_path);
                         }
                         // Retry init
-                        database::init_database(app_data_dir).await
+                        database::init_database(db_data_dir).await
                     }
                 }
             }).expect("Failed to initialize database");
 
-            app.manage(AppState { db, sync_client });
+            let storage_dir = app_data_dir.join("files");
+            if !storage_dir.exists() {
+                std::fs::create_dir_all(&storage_dir).expect("Failed to create storage directory");
+            }
+
+            app.manage(AppState { db, sync_client, storage_dir });
 
             Ok(())
         })
@@ -72,6 +78,10 @@ pub fn run() {
             commands::upload_file,
             commands::get_asset_path,
             commands::sync_local_db_to_server,
+            commands::get_all_settings,
+            commands::get_setting,
+            commands::set_setting,
+            commands::delete_setting,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -61,5 +61,35 @@ async fn create_tables(pool: &Pool<Sqlite>) -> DbResult<()> {
     .execute(pool)
     .await?;
 
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS files (
+            id TEXT PRIMARY KEY,
+            file_path TEXT NOT NULL,
+            original_name TEXT NOT NULL,
+            mime_type TEXT NOT NULL,
+            size_bytes INTEGER NOT NULL,
+            created_at TEXT NOT NULL
+        )
+        "#,
+    )
+    .execute(pool)
+    .await?;
+
+    // Attempt to add content column if it doesn't exist (migrations are better but this works for prototype)
+    let _ = sqlx::query("ALTER TABLE files ADD COLUMN content BLOB").execute(pool).await;
+
+    sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at INTEGER NOT NULL
+        )
+        "#,
+    )
+    .execute(pool)
+    .await?;
+
     Ok(())
 }

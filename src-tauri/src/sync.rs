@@ -12,9 +12,9 @@ pub struct FileResponse {
 }
 
 pub struct SyncClient {
-    client: Client,
-    base_url: String,
-    api_key: String,
+    pub client: Client,
+    pub base_url: String,
+    pub api_key: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -37,6 +37,14 @@ impl SyncClient {
         Self {
             client: Client::new(),
             base_url: base_url.trim_end_matches('/').to_string(),
+            api_key,
+        }
+    }
+
+    pub fn with_api_key(&self, api_key: String) -> Self {
+        Self {
+            client: self.client.clone(),
+            base_url: self.base_url.clone(),
             api_key,
         }
     }
@@ -93,19 +101,20 @@ impl SyncClient {
         return Ok(true);
     }
 
-    pub async fn upload_current_db(&self, db_path: &PathBuf) -> Result<String> {
+    pub async fn upload_db_release(&self, db_path: &PathBuf) -> Result<String> {
         if !db_path.exists() {
             return Err(anyhow::anyhow!("Database file not found"));
         }
 
         // 1. Upload File (Raw Binary)
         let file_content = tokio::fs::read(db_path).await?;
-        // Server expects raw body, not multipart
+        
+        let filename = format!("notebook_{}.db", chrono::Utc::now().format("%Y%m%d_%H%M%S"));
         
         let upload_url = format!("{}/v1/files", self.base_url);
         let resp = self.client.post(&upload_url)
             .header("X-API-KEY", &self.api_key)
-            .header("X-File-Name", "notebook.db")
+            .header("X-File-Name", filename)
             .header("Content-Type", "application/x-sqlite3")
             .body(file_content)
             .send()
@@ -113,15 +122,13 @@ impl SyncClient {
             .error_for_status()?;
 
         let file_res: FileResponse = resp.json().await?;
-        println!("Uploaded notebook.db (File ID: {})", file_res.id);
+        println!("Uploaded DB (File ID: {})", file_res.id);
 
-        // 2. Create Release (Auto-Release)
-        // In a strict environment, maybe we don't do this automatically?
-        // But for "sync", yes we do.
+        // 2. Create Release
         let release_req = CreateReleaseRequest {
             file_id: file_res.id.clone(),
-            version_name: Some("Auto-Sync".to_string()),
-            description: Some("Uploaded from desktop client".to_string()),
+            version_name: Some("Full Release".to_string()),
+            description: Some("Monolithic DB release with embedded files".to_string()),
         };
 
         let release_url = format!("{}/v1/releases", self.base_url);

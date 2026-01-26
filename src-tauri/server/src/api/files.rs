@@ -78,16 +78,13 @@ pub async fn upload_handler(
         (status = 206, description = "Partial content"),
         (status = 404, description = "File not found")
     ),
-    security(("api_key" = []))
 )]
 pub async fn download_handler(
     State(state): State<Arc<AppState>>,
-    AuthenticatedApp(_app): AuthenticatedApp,
     Path(file_id): Path<String>,
     request: Request,
 ) -> Result<Response, AppError> {
-    // Allow reading ANY file if you are authenticated (Guests included)
-    // UUID prevents enumeration.
+    // Allow reading ANY file publicly (UUID prevents enumeration)
     let meta = state.file_service.get_file_metadata_any_owner(&file_id).await?;
     let abs_path = state.file_service.get_absolute_path(&meta.stored_path);
     

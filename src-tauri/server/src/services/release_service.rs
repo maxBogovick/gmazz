@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use uuid::Uuid;
 use sqlx::sqlite::SqlitePoolOptions;
-use crate::db::repo::{Repo, Release, ReleaseWithFile};
+use crate::db::repo::{Repo, Release, ReleaseWithFile, FileMetadata};
 use crate::error::AppError;
 use crate::AppState;
 
@@ -125,6 +125,62 @@ impl ReleaseService {
             .max_connections(5)
             .connect(&db_url)
             .await?;
+
+        // --- Dehydration: Extract embedded files ---
+        // We do this optimistically. If it fails, we log and continue (the DB is still valid for notes).
+        match sqlx::query_as::<_, (String, String, Option<String>, i64, Option<Vec<u8>>)>(
+            "SELECT id, original_name, mime_type, size_bytes, content FROM files WHERE content IS NOT NULL"
+        )
+        .fetch_all(&pool)
+        .await 
+        {
+            Ok(files) => {
+                for (id, name, mime, size, content) in files {
+                    if let Some(data) = content {
+                        // Check if file is already registered in System DB to avoid overwriting/work
+                        match state.repo.get_file(&id, &release.app_id).await {
+                            Ok(Some(_)) => continue, // Already exists
+                            Ok(None) => {
+                                // Extract
+                                match state.storage.prepare_file_path(&release.app_id, &id).await {
+                                    Ok((rel_path, abs_path)) => {
+                                        if let Err(e) = tokio::fs::write(&abs_path, &data).await {
+                                            tracing::error!("Failed to write extracted file {}: {}", id, e);
+                                            continue;
+                                        }
+
+                                        let metadata = FileMetadata {
+                                            id: id.clone(),
+                                            app_id: release.app_id.clone(),
+                                            original_name: name,
+                                            stored_path: rel_path,
+                                            mime_type: mime,
+                                            size_bytes: size,
+                                            checksum: None, 
+                                            created_at: chrono::Utc::now().timestamp(),
+                                            deleted_at: None,
+                                        };
+
+                                        if let Err(e) = state.repo.create_file(&metadata).await {
+                                            tracing::error!("Failed to register extracted file {}: {}", id, e);
+                                        } else {
+                                            tracing::info!("Dehydrated file from release: {}", id);
+                                        }
+                                    },
+                                    Err(e) => tracing::error!("Failed to prepare path for {}: {}", id, e),
+                                }
+                            },
+                            Err(e) => tracing::error!("DB error checking file {}: {}", id, e),
+                        }
+                    }
+                }
+            },
+            Err(e) => {
+                // It's possible the uploaded DB doesn't have 'files' table or 'content' column if it's an old version?
+                // But we just created it.
+                tracing::warn!("Failed to scan release DB for files (Dehydration skipped): {}", e);
+            }
+        }
 
         // Swap
         let mut lock = state.notebook_db.write().await;

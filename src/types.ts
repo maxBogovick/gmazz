@@ -5,6 +5,7 @@ export interface NoteMetadata {
   time_signature?: string;
   mood?: string;
   file_path?: string;
+  audio_path?: string;
   comment?: string;
   chord_symbol?: string;
   key?: string;

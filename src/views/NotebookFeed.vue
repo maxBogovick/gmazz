@@ -20,6 +20,47 @@ const isPhotoHovered = ref(false);
 const isUploadingPhoto = ref(false);
 const photoInputRef = ref<HTMLInputElement | null>(null);
 
+// Editable Profile Data
+const profileData = ref({
+  firstName: 'Сергей',
+  lastName: 'Гмыря',
+  role: 'Музыкант',
+  description: 'Мысли, гармонии, мелодические фразы и партитуры — живой архив музыкальных идей',
+  quote: 'Музыка — это то, что происходит между нотами',
+  startYear: '1974'
+});
+
+async function loadProfileData() {
+  try {
+    const [fname, lname, role, desc, quote, year] = await Promise.all([
+      getSetting('profile_firstname'),
+      getSetting('profile_lastname'),
+      getSetting('profile_role'),
+      getSetting('profile_description'),
+      getSetting('profile_quote'),
+      getSetting('archive_start_year')
+    ]);
+    
+    if (fname) profileData.value.firstName = fname;
+    if (lname) profileData.value.lastName = lname;
+    if (role) profileData.value.role = role;
+    if (desc) profileData.value.description = desc;
+    if (quote) profileData.value.quote = quote;
+    if (year) profileData.value.startYear = year;
+  } catch (e) {
+    console.error('Failed to load profile data', e);
+  }
+}
+
+async function saveProfileField(key: string, value: string) {
+  if (!isTauri) return;
+  try {
+    await setSetting(key, value);
+  } catch (e) {
+    console.error(`Failed to save ${key}`, e);
+  }
+}
+
 // Load profile photo from server
 async function loadProfilePhoto() {
   try {
@@ -113,7 +154,8 @@ let animationFrame: number;
 onMounted(async () => {
   await Promise.all([
     store.fetchNotes(),
-    loadProfilePhoto()
+    loadProfilePhoto(),
+    loadProfileData()
   ]);
   window.addEventListener('mousemove', handleMouseMove, { passive: true });
   window.addEventListener('scroll', handleScroll, { passive: true });
@@ -374,20 +416,48 @@ const musicalNotes = ['𝅝', '𝅗𝅥', '𝅘𝅥', '𝅘𝅥𝅮', '𝅘𝅥�
               </div>
             </div>
 
-            <h1 class="text-7xl lg:text-8xl font-light text-stone-800 leading-[0.95] mb-10 tracking-tight">
-              <span class="inline-block hover:text-amber-700 transition-colors duration-700 drop-shadow-sm">Сергей </span>
-              <span class="invisible">г</span>
-              <span class="inline-block hover:text-amber-700 transition-colors duration-700 drop-shadow-sm"> Гмыря</span>
-              <span class="block text-stone-400 mt-4 text-6xl lg:text-7xl hover:text-stone-500 transition-colors duration-700">Музыкант</span>
+            <h1 class="text-7xl lg:text-8xl font-light text-stone-800 leading-[0.95] mb-10 tracking-tight flex flex-col items-start gap-2">
+              <div class="flex items-baseline gap-4 flex-wrap">
+                <input
+                  v-if="isTauri"
+                  v-model="profileData.firstName"
+                  @change="saveProfileField('profile_firstname', profileData.firstName)"
+                  class="bg-transparent border-b border-transparent hover:border-amber-300 focus:border-amber-500 focus:outline-none transition-all min-w-[1ch] w-auto max-w-full"
+                  :style="{ width: profileData.firstName.length + 'ch' }"
+                />
+                <span v-else class="inline-block hover:text-amber-700 transition-colors duration-700 drop-shadow-sm">{{ profileData.firstName }}</span>
+
+                <input
+                  v-if="isTauri"
+                  v-model="profileData.lastName"
+                  @change="saveProfileField('profile_lastname', profileData.lastName)"
+                  class="bg-transparent border-b border-transparent hover:border-amber-300 focus:border-amber-500 focus:outline-none transition-all min-w-[1ch] w-auto max-w-full"
+                  :style="{ width: profileData.lastName.length + 'ch' }"
+                />
+                <span v-else class="inline-block hover:text-amber-700 transition-colors duration-700 drop-shadow-sm">{{ profileData.lastName }}</span>
+              </div>
+              
+              <input
+                v-if="isTauri"
+                v-model="profileData.role"
+                @change="saveProfileField('profile_role', profileData.role)"
+                class="text-stone-400 mt-4 text-6xl lg:text-7xl bg-transparent border-b border-transparent hover:border-stone-300 focus:border-stone-500 focus:outline-none transition-all w-full"
+              />
+              <span v-else class="block text-stone-400 mt-4 text-6xl lg:text-7xl hover:text-stone-500 transition-colors duration-700">{{ profileData.role }}</span>
             </h1>
 
-            <p class="text-2xl lg:text-[26px] text-stone-500 leading-relaxed max-w-2xl">
-              Мысли, гармонии, мелодические фразы и партитуры —
-              <span class="relative inline-block text-stone-700 font-medium px-1">
-                живой архив музыкальных идей
-                <span class="absolute bottom-0 left-0 w-full h-[2px] bg-gradient-to-r from-amber-400 via-amber-300 to-transparent rounded-full" />
-              </span>
-            </p>
+            <div class="text-2xl lg:text-[26px] text-stone-500 leading-relaxed max-w-2xl">
+              <textarea
+                v-if="isTauri"
+                v-model="profileData.description"
+                @change="saveProfileField('profile_description', profileData.description)"
+                rows="3"
+                class="w-full bg-transparent border-l-2 border-transparent hover:border-amber-300 focus:border-amber-500 focus:outline-none transition-all resize-none"
+              ></textarea>
+              <p v-else>
+                {{ profileData.description }}
+              </p>
+            </div>
 
             <!-- Enhanced Stats -->
             <div class="flex items-center gap-16 mt-16">
@@ -775,14 +845,31 @@ const musicalNotes = ['𝅝', '𝅗𝅥', '𝅘𝅥', '𝅘𝅥𝅮', '𝅘𝅥�
             <span class="text-5xl text-amber-400 group-hover:scale-125 group-hover:rotate-12 transition-all duration-700 font-serif drop-shadow-lg" :style="{ transform: `scale(${1 + Math.sin(time * 0.5) * 0.08})` }">𝄞</span>
             <div>
               <span class="text-stone-700 font-bold text-2xl group-hover:text-amber-700 transition-colors duration-500 tracking-tight">Gmazz</span>
-              <span class="text-xs text-stone-400 block tracking-[0.25em] uppercase mt-1 font-semibold">архив 1974—{{ new Date().getFullYear() }}</span>
+              <div class="text-xs text-stone-400 block tracking-[0.25em] uppercase mt-1 font-semibold flex items-center gap-1">
+                <span>архив</span>
+                <input
+                  v-if="isTauri"
+                  v-model="profileData.startYear"
+                  @change="saveProfileField('archive_start_year', profileData.startYear)"
+                  class="bg-transparent w-12 border-b border-stone-200 focus:border-amber-500 outline-none text-center"
+                />
+                <span v-else>{{ profileData.startYear }}</span>
+                <span>—{{ new Date().getFullYear() }}</span>
+              </div>
             </div>
           </div>
-          <p class="text-lg text-stone-500 italic text-center md:text-right max-w-lg leading-relaxed relative">
+          <div class="text-lg text-stone-500 italic text-center md:text-right max-w-lg leading-relaxed relative">
             <span class="absolute -top-6 -left-6 text-5xl text-amber-300/40 font-serif">"</span>
-            Музыка — это то, что происходит между нотами
+            <textarea
+              v-if="isTauri"
+              v-model="profileData.quote"
+              @change="saveProfileField('profile_quote', profileData.quote)"
+              rows="2"
+              class="w-full bg-transparent border-none focus:ring-0 text-right resize-none outline-none"
+            ></textarea>
+            <span v-else>{{ profileData.quote }}</span>
             <span class="absolute -bottom-6 -right-6 text-5xl text-amber-300/40 font-serif">"</span>
-          </p>
+          </div>
         </div>
       </div>
     </footer>

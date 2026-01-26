@@ -10,7 +10,7 @@ use gmazz_file_server::cli::Cli;
 
 use tokio::sync::RwLock;
 
-fn main() {
+fn main2() {
     Scan::current_dir()
         .remove_comments()
         .remove_doc_comments()
@@ -20,7 +20,7 @@ fn main() {
         .run().unwrap();
 }
 #[tokio::main]
-async fn main2() -> anyhow::Result<()> {
+async fn main() -> anyhow::Result<()> {
     // 1. Config
     let config = Config::load();
 

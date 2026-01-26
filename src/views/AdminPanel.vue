@@ -5,9 +5,11 @@ import {
   listKeys, createKey, updateKeyStatus,
   type Release, type AppKey, type CreatedKey
 } from '../api/server';
+import { syncDatabase } from '../api/notes';
 import { useRouter } from 'vue-router';
 
 const router = useRouter();
+const isTauri = !!(window as any).__TAURI_INTERNALS__;
 
 // Auth
 const adminSecret = ref(localStorage.getItem('adminSecret') || '');
@@ -218,6 +220,20 @@ const handleLogin = () => {
     checkAuth();
   }
 };
+
+const handleSync = async () => {
+  //if (!confirm('This will bundle your local database and files and upload them as a new Release. Continue?')) return;
+  loading.value = true;
+  try {
+    const id = await syncDatabase();
+    await loadData();
+    alert('Sync successful! Release created: ' + id);
+  } catch (e: any) {
+    alert('Sync failed: ' + e);
+  } finally {
+    loading.value = false;
+  }
+};
 </script>
 
 <template>
@@ -293,20 +309,29 @@ const handleLogin = () => {
           <p class="text-stone-500 text-sm">
             {{ currentTab === 'releases' ? 'Manage database versions' : 'Manage client access keys' }}
           </p>
-          <button 
-            v-if="currentTab === 'releases'"
-            @click="openReleaseModal"
-            class="px-6 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors shadow-sm font-medium"
-          >
-            Create Release
-          </button>
-          <button 
-            v-else
-            @click="openKeyModal"
-            class="px-6 py-2 bg-stone-800 text-white rounded-lg hover:bg-stone-900 transition-colors shadow-sm font-medium"
-          >
-            Create New Key
-          </button>
+          <div class="flex gap-3">
+            <button 
+              v-if="currentTab === 'releases' && isTauri"
+              @click="handleSync"
+              class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm font-medium"
+            >
+              Sync (Create Release)
+            </button>
+            <button 
+              v-if="currentTab === 'releases'"
+              @click="openReleaseModal"
+              class="px-6 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors shadow-sm font-medium"
+            >
+              Upload Release Manually
+            </button>
+            <button 
+              v-else
+              @click="openKeyModal"
+              class="px-6 py-2 bg-stone-800 text-white rounded-lg hover:bg-stone-900 transition-colors shadow-sm font-medium"
+            >
+              Create New Key
+            </button>
+          </div>
         </div>
 
         <div v-if="loading" class="text-center py-20 text-stone-400">Loading...</div>

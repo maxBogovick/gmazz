@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, computed } from 'vue';
+import { onMounted, onUnmounted, ref, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useNotesStore } from '../store/notes';
 import { getAssetPath } from '../api/notes';
@@ -58,21 +58,40 @@ const typeInfo: Record<string, { label: string; labelRu: string; icon: string; a
 
 let animationFrame: number;
 
-onMounted(async () => {
-  const id = route.params.id as string;
-  await store.fetchNote(id);
+async function loadResources() {
+  if (!note.value) return;
 
+  console.log("current node is = ", note.value);
+  // Reset
+  if (audio.value) {
+    audio.value.pause();
+    audio.value = null;
+  }
+  imagePath.value = '';
+  isPlaying.value = false;
+
+  // Load Audio
   if (note.value?.note_type === 'phrase' && note.value.metadata.file_path) {
     const path = await getAssetPath(note.value.metadata.file_path);
     audio.value = new Audio(path);
-    audio.value.addEventListener('ended', () => {
-      isPlaying.value = false;
-    });
+    audio.value.addEventListener('ended', () => { isPlaying.value = false; });
+  } else if (note.value.note_type === 'score' && note.value.metadata.audio_path) {
+    const path = await getAssetPath(note.value.metadata.audio_path);
+    console.log("audio path = ", path);
+    audio.value = new Audio(path);
+    audio.value.addEventListener('ended', () => { isPlaying.value = false; });
   }
 
+  // Load Score Image/PDF
   if (note.value?.note_type === 'score' && note.value.metadata.file_path) {
     imagePath.value = await getAssetPath(note.value.metadata.file_path);
   }
+}
+
+onMounted(async () => {
+  const id = route.params.id as string;
+  await store.fetchNote(id);
+  await loadResources();
 
   document.addEventListener('keydown', handleKeydown);
   window.addEventListener('wheel', handleWheel, { passive: false });
@@ -84,6 +103,8 @@ onMounted(async () => {
   };
   animate();
 });
+
+watch(note, loadResources);
 
 onUnmounted(() => {
   if (audio.value) {
@@ -480,6 +501,20 @@ const ambientStyle = computed(() => {
                           <span class="text-xs text-stone-500 font-sans font-semibold uppercase tracking-wider">Тональность:</span>
                           <span class="text-xl font-bold" :style="{ color: typeInfo[note.note_type]?.accent }">{{ note.metadata.key }}</span>
                         </div>
+                      </div>
+
+                      <!-- Audio Player for Score -->
+                      <div v-if="audio" class="flex justify-center">
+                        <button
+                            @click="togglePlay"
+                            class="flex items-center gap-4 px-8 py-3 rounded-full text-white transition-all duration-500 shadow-xl hover:scale-105 group"
+                            :style="{
+                              background: `linear-gradient(135deg, ${typeInfo[note.note_type]?.accent} 0%, ${typeInfo[note.note_type]?.accent}CC 100%)`
+                            }"
+                        >
+                          <span class="text-2xl">{{ isPlaying ? '⏸' : '▶' }}</span>
+                          <span class="text-xs uppercase tracking-widest font-bold">{{ isPlaying ? 'Пауза' : 'Слушать запись' }}</span>
+                        </button>
                       </div>
 
                       <!-- Enhanced Score Viewer -->

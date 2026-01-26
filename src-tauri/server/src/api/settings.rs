@@ -33,9 +33,18 @@ pub struct AllSettingsResponse {
 pub async fn get_all_settings_handler(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<AllSettingsResponse>, AppError> {
-    let settings = state.repo.get_all_settings()
-        .await
-        .map_err(|e| AppError::Anyhow(e))?;
+    let active_db = state.notebook_db.read().await;
+    
+    let settings = if let Some(pool) = active_db.as_ref() {
+        sqlx::query_as::<_, crate::db::repo::Setting>("SELECT key, value, updated_at FROM settings ORDER BY key")
+            .fetch_all(pool)
+            .await
+            .unwrap_or_else(|_| vec![])
+    } else {
+        state.repo.get_all_settings()
+            .await
+            .map_err(|e| AppError::Anyhow(e))?
+    };
 
     let settings = settings.into_iter().map(|s| SettingResponse {
         key: s.key,
@@ -60,10 +69,21 @@ pub async fn get_setting_handler(
     State(state): State<Arc<AppState>>,
     Path(key): Path<String>,
 ) -> Result<Json<SettingResponse>, AppError> {
-    let setting = state.repo.get_setting(&key)
-        .await
-        .map_err(|e| AppError::Anyhow(e))?
-        .ok_or_else(|| AppError::NotFound(format!("Setting '{}' not found", key)))?;
+    let active_db = state.notebook_db.read().await;
+
+    let setting = if let Some(pool) = active_db.as_ref() {
+        sqlx::query_as::<_, crate::db::repo::Setting>("SELECT key, value, updated_at FROM settings WHERE key = ?")
+            .bind(&key)
+            .fetch_optional(pool)
+            .await
+            .unwrap_or(None)
+    } else {
+        state.repo.get_setting(&key)
+            .await
+            .map_err(|e| AppError::Anyhow(e))?
+    };
+
+    let setting = setting.ok_or_else(|| AppError::NotFound(format!("Setting '{}' not found", key)))?;
 
     Ok(Json(SettingResponse {
         key: setting.key,

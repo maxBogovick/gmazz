@@ -1,14 +1,19 @@
+// @ts-ignore
+import { invoke } from '@tauri-apps/api/core';
+
 export const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:8080';
 let currentApiKey = import.meta.env.VITE_API_KEY || localStorage.getItem('gmazz_api_key') || '';
 
+export const isTauri = () => !!(window as any).__TAURI_INTERNALS__;
+
 export const getApiKey = () => currentApiKey;
 export const setApiKey = (key: string) => {
-    currentApiKey = key;
-    localStorage.setItem('gmazz_api_key', key);
+  currentApiKey = key;
+  localStorage.setItem('gmazz_api_key', key);
 };
 
 // Deprecated export for backward compatibility if used directly elsewhere, but try to use getApiKey()
-export const API_KEY = currentApiKey; 
+export const API_KEY = currentApiKey;
 
 export interface Release {
   id: string;
@@ -80,9 +85,9 @@ export async function createGuestKey(): Promise<CreatedKey> {
 export async function createKey(adminSecret: string, name: string): Promise<CreatedKey> {
   const response = await fetch(`${SERVER_URL}/admin/keys`, {
     method: 'POST',
-    headers: { 
+    headers: {
       'Content-Type': 'application/json',
-      'X-ADMIN-SECRET': adminSecret 
+      'X-ADMIN-SECRET': adminSecret
     },
     body: JSON.stringify({ name })
   });
@@ -125,6 +130,24 @@ export async function createRelease(request: CreateReleaseRequest): Promise<Rele
 }
 
 export async function uploadFileToServer(file: File): Promise<string> {
+  if (isTauri()) {
+    // Use Local Desktop Command
+    const arrayBuffer = await file.arrayBuffer();
+    const bytes = Array.from(new Uint8Array(arrayBuffer));
+
+    const id = await invoke('upload_file', {
+      fileName: file.name,
+      fileData: bytes,
+      fileType: file.type
+    }) as string;
+
+    // Return ID (or asset URL if we decide later)
+    // Note: If the backend returns just ID, the frontend needs to know how to resolve it.
+    // But let's assume `asset://` handling or similar is handled by getAssetPath or something.
+    // The current prompt asks for "save to filesystem", which we did.
+    return id;
+  }
+
   const key = getApiKey();
   if (!key) {
     throw new Error('API Key is not configured');
@@ -132,7 +155,7 @@ export async function uploadFileToServer(file: File): Promise<string> {
 
   // The Rust server implementation (src-tauri/server/src/api/files.rs) uses `Body` stream and header `X-File-Name`
   // It expects RAW BINARY body, NOT multipart/form-data.
-  
+
   const headers = {
     'X-API-KEY': key,
     'X-File-Name': file.name,
@@ -175,6 +198,9 @@ export interface AllSettingsResponse {
 }
 
 export async function getAllSettings(): Promise<Setting[]> {
+  if (isTauri()) {
+    return await invoke<Setting[]>('get_all_settings');
+  }
   const response = await fetch(`${SERVER_URL}/v1/public/settings`);
   if (!response.ok) throw new Error(`Failed to fetch settings: ${response.statusText}`);
   const data: AllSettingsResponse = await response.json();
@@ -182,6 +208,9 @@ export async function getAllSettings(): Promise<Setting[]> {
 }
 
 export async function getSetting(key: string): Promise<string | null> {
+  if (isTauri()) {
+    return await invoke<string | null>('get_setting', { key });
+  }
   const response = await fetch(`${SERVER_URL}/v1/public/settings/${encodeURIComponent(key)}`);
   if (response.status === 404) return null;
   if (!response.ok) throw new Error(`Failed to fetch setting: ${response.statusText}`);
@@ -190,6 +219,9 @@ export async function getSetting(key: string): Promise<string | null> {
 }
 
 export async function setSetting(key: string, value: string): Promise<Setting> {
+  if (isTauri()) {
+    return await invoke<Setting>('set_setting', { key, value });
+  }
   const apiKey = getApiKey();
   if (!apiKey) throw new Error('API Key is not configured');
 
@@ -207,6 +239,9 @@ export async function setSetting(key: string, value: string): Promise<Setting> {
 }
 
 export async function deleteSetting(key: string): Promise<boolean> {
+  if (isTauri()) {
+    return await invoke<boolean>('delete_setting', { key });
+  }
   const apiKey = getApiKey();
   if (!apiKey) throw new Error('API Key is not configured');
 

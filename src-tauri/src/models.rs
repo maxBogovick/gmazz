@@ -46,6 +46,8 @@ pub struct NoteMetadata {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub file_path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub audio_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub comment: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub chord_symbol: Option<String>,
@@ -64,6 +66,7 @@ impl Default for NoteMetadata {
             time_signature: None,
             mood: None,
             file_path: None,
+            audio_path: None,
             comment: None,
             chord_symbol: None,
             key: None,
@@ -111,4 +114,11 @@ pub struct NotesFilter {
     pub year: Option<i32>,
     pub limit: Option<i64>,
     pub offset: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
+pub struct Setting {
+    pub key: String,
+    pub value: String,
+    pub updated_at: i64,
 }
