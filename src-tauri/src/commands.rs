@@ -393,7 +393,15 @@ pub async fn sync_local_db_to_server(app: AppHandle, state: State<'_, AppState>,
 
         let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
         let db_path = app_data_dir.join("notebook.db");
-        let release_db_path = app_data_dir.join("notebook_release.db");
+
+        let temp_dir = app.path().temp_dir().map_err(|e| e.to_string())?;
+        if !temp_dir.exists() {
+            std::fs::create_dir_all(&temp_dir).map_err(|e| e.to_string())?;
+        }
+        let release_db_path = temp_dir.join(format!(
+            "notebook_release_{}.db",
+            Utc::now().timestamp_millis()
+        ));
 
         // 1. Copy DB to temp release DB
         tokio::fs::copy(&db_path, &release_db_path).await.map_err(|e| format!("Failed to copy DB: {}", e))?;

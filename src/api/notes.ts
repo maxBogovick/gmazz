@@ -6,14 +6,14 @@ import { SERVER_URL } from './server';
 // Simple detection of Tauri environment
 
 export async function createNote(request: CreateNoteRequest): Promise<Note> {
-    if (!isTauri) throw new Error('Action not supported in Web Mode');
+    if (!isTauri()) throw new Error('Action not supported in Web Mode');
     const note = await invoke<Note>('create_note', { request });
     // syncDatabase removed to allow offline-first / manual sync
     return note;
 }
 
 export async function updateNote(id: string, request: UpdateNoteRequest): Promise<Note> {
-    if (!isTauri) throw new Error('Action not supported in Web Mode');
+    if (!isTauri()) throw new Error('Action not supported in Web Mode');
     const note = await invoke<Note>('update_note', { id, request });
     // syncDatabase removed
     return note;
@@ -70,7 +70,7 @@ export async function getRandomNote(): Promise<Note> {
 }
 
 export async function deleteNote(id: string): Promise<void> {
-    if (!isTauri) throw new Error('Action not supported in Web Mode');
+    if (!isTauri()) throw new Error('Action not supported in Web Mode');
     await invoke('delete_note', { id });
     // syncDatabase removed
 }
@@ -78,7 +78,7 @@ export async function deleteNote(id: string): Promise<void> {
 export async function uploadFile(
     file: File
 ): Promise<string> {
-    if (!isTauri) throw new Error('Action not supported in Web Mode');
+    if (!isTauri()) throw new Error('Action not supported in Web Mode');
 
     const arrayBuffer = await file.arrayBuffer();
     const bytes = Array.from(new Uint8Array(arrayBuffer));
@@ -132,7 +132,7 @@ export async function getAssetPath(relativePath: string): Promise<string> {
 }
 
 export async function syncDatabase(): Promise<string> {
-    if (!isTauri) throw new Error('Sync not supported in Web Mode');
+    if (!isTauri()) throw new Error('Sync not supported in Web Mode');
     const apiKey = getApiKey();
     return await invoke('sync_local_db_to_server', { apiKey });
 }
