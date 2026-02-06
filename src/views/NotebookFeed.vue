@@ -2,7 +2,7 @@
 import { onMounted, ref, computed, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useNotesStore } from '../store/notes';
-import { uploadFileToServer, getSetting, setSetting } from '../api/server';
+import { getSetting, isTauri, setSetting, uploadFileAndGetId } from '../api/server';
 import { getAssetPath } from '../api/notes';
 import type { Note, NoteType } from '../types';
 
@@ -19,8 +19,8 @@ let motionMedia: MediaQueryList | null = null;
 let isAnimating = false;
 
 // Profile photo
-const isTauri = !!(window as any).__TAURI_INTERNALS__;
-const canEditSettings = computed(() => isTauri);
+const isTauriEnv = !!(window as any).__TAURI_INTERNALS__;
+const canEditSettings = computed(() => isTauriEnv);
 const profilePhotoUrl = ref<string>('');
 const isPhotoHovered = ref(false);
 const isUploadingPhoto = ref(false);
@@ -154,12 +154,10 @@ async function handlePhotoChange(event: Event) {
 
   isUploadingPhoto.value = true;
   try {
-    // Upload file to server
-    const url = await uploadFileToServer(file);
-    // Save URL in settings
-    await setSetting('profile_photo', url);
-    // Get displayable URL via getAssetPath
-    profilePhotoUrl.value = await getAssetPath(url);
+    // Upload and store file id (keeps releases offline-friendly)
+    const fileId = await uploadFileAndGetId(file);
+    await setSetting('profile_photo', fileId);
+    profilePhotoUrl.value = await getAssetPath(fileId);
   } catch (error) {
     console.error('Failed to upload photo:', error);
     alert('Не удалось загрузить фото');
@@ -222,7 +220,9 @@ onMounted(async () => {
     loadProfileData(),
     loadMaestroBlock()
   ]);
-  const savedAmbient = localStorage.getItem('gmazz_light_ambient');
+  const savedAmbient = isTauri()
+    ? await getSetting('gmazz_light_ambient')
+    : localStorage.getItem('gmazz_light_ambient');
   isLightAmbient.value = savedAmbient === '1';
   updateMotionPrefs();
   window.addEventListener('resize', updateMotionPrefs, { passive: true });
@@ -282,9 +282,13 @@ function syncAmbientMotion() {
   }
 }
 
-function toggleLightAmbient() {
+async function toggleLightAmbient() {
   isLightAmbient.value = !isLightAmbient.value;
-  localStorage.setItem('gmazz_light_ambient', isLightAmbient.value ? '1' : '0');
+  if (isTauri()) {
+    await setSetting('gmazz_light_ambient', isLightAmbient.value ? '1' : '0');
+  } else {
+    localStorage.setItem('gmazz_light_ambient', isLightAmbient.value ? '1' : '0');
+  }
   syncAmbientMotion();
 }
 

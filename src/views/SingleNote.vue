@@ -3,6 +3,7 @@ import { onMounted, onUnmounted, ref, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useNotesStore } from '../store/notes';
 import { getAssetPath } from '../api/notes';
+import { getSetting, isTauri } from '../api/server';
 import Waveform from '../components/common/Waveform.vue';
 
 const route = useRoute();
@@ -99,7 +100,9 @@ onMounted(async () => {
 
   document.addEventListener('keydown', handleKeydown);
   window.addEventListener('wheel', handleWheel, { passive: false });
-  const savedAmbient = localStorage.getItem('gmazz_light_ambient');
+  const savedAmbient = isTauri()
+    ? await getSetting('gmazz_light_ambient')
+    : localStorage.getItem('gmazz_light_ambient');
   isLightAmbient.value = savedAmbient === '1';
   updateMotionPrefs();
   if (motionMedia) {

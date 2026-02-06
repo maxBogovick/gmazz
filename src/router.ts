@@ -3,6 +3,7 @@ import NotebookFeed from './views/NotebookFeed.vue';
 import SingleNote from './views/SingleNote.vue';
 import CreateNote from './views/CreateNote.vue';
 import AdminPanel from './views/AdminPanel.vue';
+import AdminUpload from './views/AdminUpload.vue';
 
 const routes = [
   {
@@ -29,6 +30,11 @@ const routes = [
     path: '/admin',
     name: 'admin',
     component: AdminPanel,
+  },
+  {
+    path: '/admin/upload',
+    name: 'admin-upload',
+    component: AdminUpload,
   },
 ];
 

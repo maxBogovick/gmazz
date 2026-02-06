@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { readFile } from '@tauri-apps/plugin-fs';
 import type { Note, CreateNoteRequest, UpdateNoteRequest, NotesFilter } from '../types';
-import { SERVER_URL } from './server';
+import { SERVER_URL, getSetting } from './server';
 
 // Simple detection of Tauri environment
 
@@ -133,6 +133,14 @@ export async function getAssetPath(relativePath: string): Promise<string> {
 
 export async function syncDatabase(): Promise<string> {
     if (!isTauri()) throw new Error('Sync not supported in Web Mode');
-    const apiKey = getApiKey();
+    let apiKey = getApiKey();
+    if (!apiKey) {
+        apiKey = (await getSetting('gmazz_api_key')) || '';
+    }
     return await invoke('sync_local_db_to_server', { apiKey });
+}
+
+export async function exportLocalRelease(): Promise<string> {
+    if (!isTauri()) throw new Error('Export not supported in Web Mode');
+    return await invoke('export_local_db_to_downloads');
 }

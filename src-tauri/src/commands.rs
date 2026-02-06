@@ -371,6 +371,45 @@ pub async fn get_asset_path(state: State<'_, AppState>, relative_path: String) -
     })
 }
 
+async fn prepare_release_db(
+    state: &AppState,
+    source_db_path: &PathBuf,
+    release_db_path: &PathBuf,
+) -> Result<(), String> {
+    tokio::fs::copy(source_db_path, release_db_path)
+        .await
+        .map_err(|e| format!("Failed to copy DB: {}", e))?;
+
+    let release_pool = Pool::<Sqlite>::connect(&format!("sqlite:{}", release_db_path.display()))
+        .await
+        .map_err(|e| format!("Failed to open release DB: {}", e))?;
+
+    let file_ids: Vec<(String,)> = sqlx::query_as("SELECT id FROM files")
+        .fetch_all(&release_pool)
+        .await
+        .map_err(|e| format!("Failed to list files: {}", e))?;
+
+    for (id,) in file_ids {
+        let file_path = state.storage_dir.join(&id);
+        if file_path.exists() {
+            match tokio::fs::read(&file_path).await {
+                Ok(content) => {
+                    sqlx::query("UPDATE files SET content = ? WHERE id = ?")
+                        .bind(content)
+                        .bind(&id)
+                        .execute(&release_pool)
+                        .await
+                        .map_err(|e| format!("Failed to embed file {}: {}", id, e))?;
+                }
+                Err(e) => println!("Warning: File {} not found on disk: {}", id, e),
+            }
+        }
+    }
+
+    release_pool.close().await;
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn sync_local_db_to_server(app: AppHandle, state: State<'_, AppState>, api_key: Option<String>) -> Result<String, String> {
     if let Some(client_ref) = &state.sync_client {
@@ -403,39 +442,7 @@ pub async fn sync_local_db_to_server(app: AppHandle, state: State<'_, AppState>,
             Utc::now().timestamp_millis()
         ));
 
-        // 1. Copy DB to temp release DB
-        tokio::fs::copy(&db_path, &release_db_path).await.map_err(|e| format!("Failed to copy DB: {}", e))?;
-
-        // 2. Open Release DB
-        let release_pool = Pool::<Sqlite>::connect(&format!("sqlite:{}", release_db_path.display()))
-            .await
-            .map_err(|e| format!("Failed to open release DB: {}", e))?;
-
-        // 3. Hydrate (Embed files)
-        let file_ids: Vec<(String,)> = sqlx::query_as("SELECT id FROM files")
-            .fetch_all(&release_pool)
-            .await
-            .map_err(|e| format!("Failed to list files: {}", e))?;
-
-        for (id,) in file_ids {
-            let file_path = state.storage_dir.join(&id);
-            if file_path.exists() {
-                match tokio::fs::read(&file_path).await {
-                    Ok(content) => {
-                        sqlx::query("UPDATE files SET content = ? WHERE id = ?")
-                            .bind(content)
-                            .bind(&id)
-                            .execute(&release_pool)
-                            .await
-                            .map_err(|e| format!("Failed to embed file {}: {}", id, e))?;
-                    },
-                    Err(e) => println!("Warning: File {} not found on disk: {}", id, e),
-                }
-            }
-        }
-
-        // Close connection to allow upload/delete
-        release_pool.close().await;
+        prepare_release_db(&state, &db_path, &release_db_path).await?;
 
         // 4. Upload
         let res = match client.upload_db_release(&release_db_path).await {
@@ -454,4 +461,31 @@ pub async fn sync_local_db_to_server(app: AppHandle, state: State<'_, AppState>,
     } else {
         Err("Sync not configured".to_string())
     }
+}
+
+#[tauri::command]
+pub async fn export_local_db_to_downloads(app: AppHandle, state: State<'_, AppState>) -> Result<String, String> {
+    sqlx::query("PRAGMA wal_checkpoint(TRUNCATE)")
+        .execute(&state.db)
+        .await
+        .map_err(|e| format!("Checkpoint failed: {}", e))?;
+
+    let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let db_path = app_data_dir.join("notebook.db");
+    if !db_path.exists() {
+        return Err("Local database not found".to_string());
+    }
+
+    let downloads_dir = app.path().download_dir().map_err(|e| e.to_string())?;
+    let release_dir = downloads_dir.join("release");
+    if !release_dir.exists() {
+        std::fs::create_dir_all(&release_dir).map_err(|e| e.to_string())?;
+    }
+
+    let file_name = format!("notebook_release_{}.db", Utc::now().format("%Y%m%d_%H%M%S"));
+    let export_path = release_dir.join(file_name);
+
+    prepare_release_db(&state, &db_path, &export_path).await?;
+
+    Ok(export_path.to_string_lossy().to_string())
 }

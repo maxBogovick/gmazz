@@ -2,14 +2,20 @@
 import { invoke } from '@tauri-apps/api/core';
 
 export const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:8080';
-let currentApiKey = import.meta.env.VITE_API_KEY || localStorage.getItem('gmazz_api_key') || '';
-
 export const isTauri = () => !!(window as any).__TAURI_INTERNALS__;
+
+let currentApiKey = import.meta.env.VITE_API_KEY || '';
+if (!isTauri()) {
+  const stored = localStorage.getItem('gmazz_api_key');
+  if (stored) currentApiKey = stored;
+}
 
 export const getApiKey = () => currentApiKey;
 export const setApiKey = (key: string) => {
   currentApiKey = key;
-  localStorage.setItem('gmazz_api_key', key);
+  if (!isTauri()) {
+    localStorage.setItem('gmazz_api_key', key);
+  }
 };
 
 // Deprecated export for backward compatibility if used directly elsewhere, but try to use getApiKey()
@@ -26,6 +32,7 @@ export interface Release {
 }
 
 export async function getReleases(limit = 20, offset = 0): Promise<Release[]> {
+  if (isTauri()) throw new Error('Releases API is disabled in offline mode');
   const key = getApiKey();
   if (!key) throw new Error('API Key is not configured');
 
@@ -38,6 +45,7 @@ export async function getReleases(limit = 20, offset = 0): Promise<Release[]> {
 }
 
 export async function getLatestRelease(): Promise<Release | null> {
+  if (isTauri()) throw new Error('Releases API is disabled in offline mode');
   const key = getApiKey();
   if (!key) throw new Error('API Key is not configured');
 
@@ -65,6 +73,7 @@ export interface CreatedKey {
 }
 
 export async function listKeys(adminSecret: string): Promise<AppKey[]> {
+  if (isTauri()) throw new Error('Keys API is disabled in offline mode');
   const response = await fetch(`${SERVER_URL}/admin/keys`, {
     headers: { 'X-ADMIN-SECRET': adminSecret }
   });
@@ -74,6 +83,7 @@ export async function listKeys(adminSecret: string): Promise<AppKey[]> {
 }
 
 export async function createGuestKey(): Promise<CreatedKey> {
+  if (isTauri()) throw new Error('Keys API is disabled in offline mode');
   const response = await fetch(`${SERVER_URL}/v1/public/auth/guest`, {
     method: 'POST'
   });
@@ -83,6 +93,7 @@ export async function createGuestKey(): Promise<CreatedKey> {
 }
 
 export async function createKey(adminSecret: string, name: string): Promise<CreatedKey> {
+  if (isTauri()) throw new Error('Keys API is disabled in offline mode');
   const response = await fetch(`${SERVER_URL}/admin/keys`, {
     method: 'POST',
     headers: {
@@ -97,6 +108,7 @@ export async function createKey(adminSecret: string, name: string): Promise<Crea
 }
 
 export async function updateKeyStatus(adminSecret: string, id: string, active: boolean): Promise<void> {
+  if (isTauri()) throw new Error('Keys API is disabled in offline mode');
   const action = active ? 'activate' : 'revoke';
   const response = await fetch(`${SERVER_URL}/admin/keys/${id}/${action}`, {
     method: 'PUT',
@@ -113,6 +125,7 @@ export interface CreateReleaseRequest {
 }
 
 export async function createRelease(request: CreateReleaseRequest): Promise<Release> {
+  if (isTauri()) throw new Error('Release upload is disabled in offline mode');
   const key = getApiKey();
   if (!key) throw new Error('API Key is not configured');
 
@@ -120,7 +133,7 @@ export async function createRelease(request: CreateReleaseRequest): Promise<Rele
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-API-KEY': API_KEY
+      'X-API-KEY': key
     },
     body: JSON.stringify(request)
   });

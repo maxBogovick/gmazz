@@ -28,19 +28,7 @@ pub fn run() {
                 None
             };
             
-            // --- Initial Download ---
-            if let Some(client) = &sync_client {
-                let db_path = app_data_dir.join("notebook.db");
-                // Blocking async for setup is tricky in Tauri, but we can verify DB existence
-                // Usually we run this in a separate thread, but for DB init we want it before.
-                // We use tauri::async_runtime::block_on
-                if let Err(e) = tauri::async_runtime::block_on(async {
-                    client.download_latest_db(&db_path).await
-                }) {
-                   eprintln!("Failed to download DB: {}", e); 
-                }
-            }
-            // -----------------------
+            // Offline-first: no automatic network sync on startup.
 
             let db_data_dir = app_data_dir.clone();
             let db = tauri::async_runtime::block_on(async move {
@@ -78,6 +66,7 @@ pub fn run() {
             commands::upload_file,
             commands::get_asset_path,
             commands::sync_local_db_to_server,
+            commands::export_local_db_to_downloads,
             commands::get_all_settings,
             commands::get_setting,
             commands::set_setting,
