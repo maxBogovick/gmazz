@@ -25,7 +25,8 @@ function handleInputContent(event: Event) {
 
 function handleInputSignature(event: Event) {
   const target = event.target as HTMLInputElement;
-  emit('update:timeSignature', target.value);
+  const cleaned = target.value.replace(/[^\d/]/g, '');
+  emit('update:timeSignature', cleaned);
 }
 
 function handleKeydown(event: KeyboardEvent) {

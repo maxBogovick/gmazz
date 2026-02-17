@@ -1,4 +1,5 @@
-export type NoteType = 'thought' | 'harmony' | 'phrase' | 'rhythm' | 'score';
+//export type NoteType = 'thought' | 'harmony' | 'phrase' | 'rhythm' | 'score';
+export type NoteType = 'thought' | 'phrase' | 'score';
 
 export interface NoteMetadata {
   duration?: number;

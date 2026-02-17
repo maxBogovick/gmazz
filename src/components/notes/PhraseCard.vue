@@ -10,21 +10,37 @@ const props = defineProps<{
 const audioPath = ref<string>('');
 const isPlaying = ref(false);
 const audio = ref<HTMLAudioElement | null>(null);
+const bars = ref<number[]>([]);
+let audioEndedHandler: (() => void) | null = null;
+let lastObjectUrl: string | null = null;
 
 onMounted(async () => {
+  bars.value = Array.from({ length: 20 }, () => 8 + Math.random() * 16);
   if (props.note.metadata.file_path) {
-    audioPath.value = await getAssetPath(props.note.metadata.file_path);
+    const path = await getAssetPath(props.note.metadata.file_path);
+    if (lastObjectUrl && lastObjectUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(lastObjectUrl);
+    }
+    audioPath.value = path;
+    lastObjectUrl = path;
     audio.value = new Audio(audioPath.value);
-    audio.value.addEventListener('ended', () => {
+    audioEndedHandler = () => {
       isPlaying.value = false;
-    });
+    };
+    audio.value.addEventListener('ended', audioEndedHandler);
   }
 });
 
 onUnmounted(() => {
   if (audio.value) {
+    if (audioEndedHandler) {
+      audio.value.removeEventListener('ended', audioEndedHandler);
+    }
     audio.value.pause();
     audio.value = null;
+  }
+  if (lastObjectUrl && lastObjectUrl.startsWith('blob:')) {
+    URL.revokeObjectURL(lastObjectUrl);
   }
 });
 
@@ -69,11 +85,11 @@ function togglePlay(event: Event) {
       <!-- Waveform Visual -->
       <div v-if="audioPath" class="mt-4 flex items-center gap-1 h-8">
         <div
-          v-for="i in 20"
+          v-for="(height, i) in bars"
           :key="i"
           class="w-1 bg-[#A67C00]/30 rounded-full transition-all duration-300"
           :class="isPlaying ? 'animate-pulse' : ''"
-          :style="{ height: `${8 + Math.random() * 16}px` }"
+          :style="{ height: `${height}px` }"
         ></div>
       </div>
     </div>

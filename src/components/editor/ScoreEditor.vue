@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 
 defineProps<{
   modelValue: string;
@@ -23,16 +23,7 @@ const audioFileName = ref<string>('');
 const previewUrl = ref<string>('');
 const isImageFile = ref(false);
 
-onMounted(() => {
-  document.addEventListener('dragover', handleDragOver);
-  document.addEventListener('dragleave', handleDragLeave);
-  document.addEventListener('drop', handleDrop);
-});
-
 onUnmounted(() => {
-  document.removeEventListener('dragover', handleDragOver);
-  document.removeEventListener('dragleave', handleDragLeave);
-  document.removeEventListener('drop', handleDrop);
   if (previewUrl.value) {
     URL.revokeObjectURL(previewUrl.value);
   }
@@ -130,6 +121,9 @@ async function processAudio(file: File) {
 
 function clearFile() {
   fileName.value = '';
+  if (previewUrl.value) {
+    URL.revokeObjectURL(previewUrl.value);
+  }
   previewUrl.value = '';
   isImageFile.value = false;
   emit('update:filePath', '', []);
@@ -153,6 +147,19 @@ function handleKeydown(event: KeyboardEvent) {
 }
 </script>
 
+watch(
+  () => [props.filePath, props.audioPath],
+  ([newFilePath, newAudioPath]) => {
+    if (newFilePath && !fileName.value) {
+      fileName.value = newFilePath;
+    }
+    if (newAudioPath && !audioFileName.value) {
+      audioFileName.value = newAudioPath;
+    }
+  },
+  { immediate: true }
+);
+
 <template>
   <div class="w-full space-y-8">
     <!-- Drop Zone (Score) -->
@@ -172,6 +179,9 @@ function handleKeydown(event: KeyboardEvent) {
 
       <div
         @click="triggerFileDialog"
+        @dragover="handleDragOver"
+        @dragleave="handleDragLeave"
+        @drop="handleDrop"
         :class="[
           'relative bg-[#F5F1E8] border-2 border-dashed rounded-lg p-8 transition-all duration-300 cursor-pointer',
           isDragging

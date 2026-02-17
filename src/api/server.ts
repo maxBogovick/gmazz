@@ -11,15 +11,14 @@ if (!isTauri()) {
 }
 
 export const getApiKey = () => currentApiKey;
+export let API_KEY = currentApiKey;
 export const setApiKey = (key: string) => {
   currentApiKey = key;
+  API_KEY = key;
   if (!isTauri()) {
     localStorage.setItem('gmazz_api_key', key);
   }
 };
-
-// Deprecated export for backward compatibility if used directly elsewhere, but try to use getApiKey()
-export const API_KEY = currentApiKey;
 
 export interface Release {
   id: string;

@@ -30,6 +30,7 @@ impl FileService {
         content_type: Option<String>, 
         body: Body
     ) -> Result<FileResponse, AppError> {
+        let original_name = sanitize_file_name(&original_name);
         let file_uuid = Uuid::new_v4().to_string();
         let tmp_path = self.storage.get_temp_path(&file_uuid);
 
@@ -112,4 +113,13 @@ impl FileService {
     pub fn get_absolute_path(&self, relative_path: &str) -> std::path::PathBuf {
         self.storage.get_absolute_path(relative_path)
     }
+}
+
+fn sanitize_file_name(name: &str) -> String {
+    let trimmed = name.trim();
+    let file_name = std::path::Path::new(trimmed)
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("file.bin");
+    file_name.replace(['\n', '\r', '\t'], "_")
 }

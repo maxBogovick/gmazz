@@ -39,12 +39,9 @@ export const useNotesStore = defineStore('notes', () => {
             notes.value = [];
             hasMore.value = true;
         }
-      }
-
-      // If we are not appending (e.g. initial load or refresh), clear list
-      if (!append) {
-          notes.value = [];
-          hasMore.value = true;
+      } else if (!append) {
+        notes.value = [];
+        hasMore.value = true;
       }
 
       const offset = notes.value.length;

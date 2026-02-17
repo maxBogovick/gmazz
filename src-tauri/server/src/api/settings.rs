@@ -1,5 +1,7 @@
 use axum::{
     extract::{State, Path},
+    http::header,
+    response::IntoResponse,
     Json,
 };
 use std::sync::Arc;
@@ -32,7 +34,7 @@ pub struct AllSettingsResponse {
 )]
 pub async fn get_all_settings_handler(
     State(state): State<Arc<AppState>>,
-) -> Result<Json<AllSettingsResponse>, AppError> {
+) -> Result<impl IntoResponse, AppError> {
     let active_db = state.notebook_db.read().await;
     
     let settings = if let Some(pool) = active_db.as_ref() {
@@ -52,7 +54,12 @@ pub async fn get_all_settings_handler(
         updated_at: s.updated_at,
     }).collect();
 
-    Ok(Json(AllSettingsResponse { settings }))
+    let mut response = Json(AllSettingsResponse { settings }).into_response();
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        header::HeaderValue::from_static("public, max-age=60"),
+    );
+    Ok(response)
 }
 
 /// Get a specific setting (public endpoint)
@@ -68,7 +75,7 @@ pub async fn get_all_settings_handler(
 pub async fn get_setting_handler(
     State(state): State<Arc<AppState>>,
     Path(key): Path<String>,
-) -> Result<Json<SettingResponse>, AppError> {
+) -> Result<impl IntoResponse, AppError> {
     let active_db = state.notebook_db.read().await;
 
     let setting = if let Some(pool) = active_db.as_ref() {
@@ -85,11 +92,17 @@ pub async fn get_setting_handler(
 
     let setting = setting.ok_or_else(|| AppError::NotFound(format!("Setting '{}' not found", key)))?;
 
-    Ok(Json(SettingResponse {
+    let mut response = Json(SettingResponse {
         key: setting.key,
         value: setting.value,
         updated_at: setting.updated_at,
-    }))
+    })
+    .into_response();
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        header::HeaderValue::from_static("public, max-age=60"),
+    );
+    Ok(response)
 }
 
 /// Set a setting (requires API key)

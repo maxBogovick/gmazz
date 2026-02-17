@@ -19,6 +19,7 @@ const isEditMode = computed(() => !!editingNoteId.value);
 const selectedType = ref<NoteType | null>((route.query.type as NoteType) || null);
 const content = ref('');
 const metadata = ref<NoteMetadata>({});
+const canSaveNote = computed(() => canSave());
 const saveStatus = ref<'idle' | 'saving' | 'saved'>('idle');
 const autoSaveTimer = ref<number | null>(null);
 const pendingFileData = ref<{ name: string; data: number[]; type?: string } | null>(null);
@@ -26,13 +27,15 @@ const pendingAudioData = ref<{ name: string; data: number[]; type?: string } | n
 const mouseX = ref(0.5);
 const mouseY = ref(0.5);
 const time = ref(0);
+const isReducedMotion = ref(false);
+let motionMedia: MediaQueryList | null = null;
 
 async function handleAudioPath(fileName: string, fileData: number[], fileType?: string) {
   pendingAudioData.value = { name: fileName, data: fileData, type: fileType };
 }
 
 async function saveNote() {
-  if (!selectedType.value || !content.value) return;
+  if (!canSave()) return;
 
   saveStatus.value = 'saving';
 
@@ -107,7 +110,7 @@ const noteTypes: { type: NoteType; label: string; labelRu: string; description: 
     accent: '#6B8FAD',
     gradient: 'linear-gradient(135deg, #F5F8FA 0%, #EAF1F6 100%)'
   },
-  {
+  /*{
     type: 'harmony',
     label: 'Harmonic Study',
     labelRu: 'Гармония',
@@ -115,7 +118,7 @@ const noteTypes: { type: NoteType; label: string; labelRu: string; description: 
     icon: '♮',
     accent: '#7B9E87',
     gradient: 'linear-gradient(135deg, #F5F9F6 0%, #EBF4EE 100%)'
-  },
+  },*/
   {
     type: 'phrase',
     label: 'Recorded Phrase',
@@ -125,7 +128,7 @@ const noteTypes: { type: NoteType; label: string; labelRu: string; description: 
     accent: '#8B7BA8',
     gradient: 'linear-gradient(135deg, #F8F6FA 0%, #F0ECF5 100%)'
   },
-  {
+  /*{
     type: 'rhythm',
     label: 'Rhythmic Pattern',
     labelRu: 'Ритм',
@@ -133,7 +136,7 @@ const noteTypes: { type: NoteType; label: string; labelRu: string; description: 
     icon: '◈',
     accent: '#B8856E',
     gradient: 'linear-gradient(135deg, #FBF6F4 0%, #F6EDE8 100%)'
-  },
+  },*/
   {
     type: 'thought',
     label: 'Personal Note',
@@ -149,13 +152,12 @@ let animationFrame: number;
 
 onMounted(async () => {
   document.addEventListener('keydown', handleGlobalKeydown);
-  window.addEventListener('mousemove', handleMouseMove, { passive: true });
+  updateMotionPrefs();
+  if (motionMedia) {
+    motionMedia.addEventListener('change', updateMotionPrefs);
+  }
 
-  const animate = () => {
-    time.value += 0.01;
-    animationFrame = requestAnimationFrame(animate);
-  };
-  animate();
+  syncAmbientMotion();
 
   // Check if editing an existing note
   const id = route.params.id as string;
@@ -173,6 +175,9 @@ onMounted(async () => {
 onUnmounted(() => {
   document.removeEventListener('keydown', handleGlobalKeydown);
   window.removeEventListener('mousemove', handleMouseMove);
+  if (motionMedia) {
+    motionMedia.removeEventListener('change', updateMotionPrefs);
+  }
   if (animationFrame) cancelAnimationFrame(animationFrame);
   if (autoSaveTimer.value) {
     clearTimeout(autoSaveTimer.value);
@@ -184,6 +189,32 @@ function handleMouseMove(e: MouseEvent) {
     mouseX.value = e.clientX / window.innerWidth;
     mouseY.value = e.clientY / window.innerHeight;
   });
+}
+
+function updateMotionPrefs() {
+  if (!motionMedia) {
+    motionMedia = window.matchMedia('(prefers-reduced-motion: reduce)');
+  }
+  isReducedMotion.value = motionMedia.matches;
+  syncAmbientMotion();
+}
+
+function syncAmbientMotion() {
+  if (isReducedMotion.value) {
+    window.removeEventListener('mousemove', handleMouseMove);
+    if (animationFrame) cancelAnimationFrame(animationFrame);
+    animationFrame = 0;
+    return;
+  }
+
+  window.addEventListener('mousemove', handleMouseMove, { passive: true });
+  if (!animationFrame) {
+    const animate = () => {
+      time.value += 0.01;
+      animationFrame = requestAnimationFrame(animate);
+    };
+    animate();
+  }
 }
 
 watch(() => route.query.type, (newType) => {
@@ -200,7 +231,7 @@ watch([content, metadata], () => {
 
 function handleGlobalKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') {
-    if (saveStatus.value === 'idle' && content.value) {
+    if (saveStatus.value === 'idle' && (content.value || pendingFileData.value || pendingAudioData.value)) {
       // Optional: confirm discard?
       // For now, just go back as per "no auto save".
       // User can stay and save if they want.
@@ -225,6 +256,15 @@ function goBack() {
   } else {
     router.push({ name: 'feed' });
   }
+}
+
+function canSave() {
+  if (!selectedType.value) return false;
+  if (content.value) return true;
+  if (selectedType.value === 'score' || selectedType.value === 'phrase') {
+    return !!pendingFileData.value || !!metadata.value.file_path;
+  }
+  return false;
 }
 
 async function handleFilePath(fileName: string, fileData: number[], fileType?: string) {
@@ -357,7 +397,7 @@ const ambientStyle = computed(() => {
 
           <!-- Manual Save Button -->
           <button
-              v-if="selectedType && content"
+              v-if="canSaveNote"
               @click="saveNote"
               class="px-6 py-2.5 text-white hover:scale-105 text-[11px] uppercase tracking-[0.25em] font-sans font-bold transition-all duration-300 rounded-xl shadow-lg hover:shadow-xl"
               :style="{

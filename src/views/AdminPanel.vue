@@ -89,6 +89,9 @@ const loadData = async () => {
       return;
     }
     if (currentTab.value === 'releases') {
+      if (!apiKey.value) {
+        throw new Error('API Key is not configured');
+      }
       const [releasesData, latestData] = await Promise.all([
         getReleases(50, 0),
         getLatestRelease()
@@ -108,6 +111,9 @@ const loadData = async () => {
   } catch (err: any) {
     if (err.message.includes('401') || err.message.includes('Unauthorized')) {
       isAuthenticated.value = false;
+      if (!isTauri) {
+        localStorage.removeItem('adminSecret');
+      }
       if (currentTab.value === 'keys') error.value = 'Invalid Admin Secret';
     } else {
       error.value = err.message || 'Failed to load data';
@@ -338,6 +344,9 @@ const handleExportRelease = async () => {
         </div>
 
         <div v-if="loading" class="text-center py-20 text-stone-400">Loading...</div>
+        <div v-else-if="error && currentTab === 'releases'" class="text-center py-10 text-red-600 text-sm">
+          {{ error }}
+        </div>
 
         <!-- Releases Table -->
         <div v-else-if="currentTab === 'releases' && isTauri" class="bg-white rounded-2xl shadow-sm border border-stone-100 p-8 text-sm text-stone-600">

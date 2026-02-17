@@ -66,7 +66,8 @@ impl ArchiveService {
         for file_meta in files {
             let file_path = storage.get_absolute_path(&file_meta.stored_path);
             if let Ok(source_file) = File::open(&file_path).await {
-                 let entry_options = async_zip::ZipEntryBuilder::new(file_meta.original_name.into(), Compression::Deflate);
+                 let entry_name = file_meta.stored_path.replace('\\', "/");
+                 let entry_options = async_zip::ZipEntryBuilder::new(entry_name.into(), Compression::Deflate);
                  let mut entry_writer = zip.write_entry_stream(entry_options).await?;
                  let mut source_compat = tokio_util::compat::TokioAsyncReadCompatExt::compat(source_file);
                  futures::io::copy(&mut source_compat, &mut entry_writer).await?;

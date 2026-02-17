@@ -52,7 +52,10 @@ pub async fn auth_middleware(
 
     let api_key = match api_key {
         Some(key) => key,
-        None => return Err(StatusCode::UNAUTHORIZED),
+        None => {
+            warn!("Missing API key");
+            return Err(StatusCode::UNAUTHORIZED);
+        }
     };
 
     let server_secret = &state.config.security.server_secret;
@@ -65,6 +68,7 @@ pub async fn auth_middleware(
 
     if let Some(app) = app {
         if !app.is_active {
+             warn!("Inactive API key used: {}", app.id);
              return Err(StatusCode::UNAUTHORIZED);
         }
         
@@ -80,6 +84,7 @@ pub async fn auth_middleware(
         req.extensions_mut().insert(app);
         Ok(next.run(req).await)
     } else {
+        warn!("Invalid API key");
         Err(StatusCode::UNAUTHORIZED)
     }
 }

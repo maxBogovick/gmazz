@@ -4,6 +4,7 @@ use axum::{
 };
 use std::sync::Arc;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use utoipa::{IntoParams, ToSchema};
 use crate::{AppState, error::AppError};
 
@@ -15,7 +16,7 @@ pub struct PublicNote {
     pub id: String,
     pub note_type: String,
     pub content: String,
-    pub metadata: String, // JSON string
+    pub metadata: Value,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -59,13 +60,16 @@ pub async fn list_public_notes_handler(
     .await
     .map_err(|e| AppError::Anyhow(anyhow::anyhow!("DB Error: {}", e)))?;
 
-    let notes = rows.into_iter().map(|row| PublicNote {
+    let notes = rows.into_iter().map(|row| {
+        let metadata = serde_json::from_str(&row.3).unwrap_or_else(|_| Value::String(row.3));
+        PublicNote {
         id: row.0,
         note_type: row.1,
         content: row.2,
-        metadata: row.3,
+        metadata,
         created_at: row.4,
         updated_at: row.5,
+        }
     }).collect();
 
     Ok(Json(notes))
@@ -103,11 +107,13 @@ pub async fn get_public_note_handler(
 
     let row = row.ok_or_else(|| AppError::NotFound("Note not found".to_string()))?;
 
+    let metadata = serde_json::from_str(&row.3).unwrap_or_else(|_| Value::String(row.3));
+
     Ok(Json(PublicNote {
         id: row.0,
         note_type: row.1,
         content: row.2,
-        metadata: row.3,
+        metadata,
         created_at: row.4,
         updated_at: row.5,
     }))

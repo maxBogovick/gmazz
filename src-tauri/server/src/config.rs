@@ -16,6 +16,7 @@ pub struct ServerConfig {
     pub host: String,
     pub port: u16,
     pub request_body_limit_bytes: usize,
+    pub allowed_origins: Vec<String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -57,9 +58,18 @@ impl Config {
                     .parse()
                     .expect("PORT must be a number"),
                 request_body_limit_bytes: env::var("REQUEST_BODY_LIMIT_BYTES")
-                    .unwrap_or_else(|_| (2 * 1024 * 1024).to_string()) // 2GB
+                    .unwrap_or_else(|_| (2 * 1024 * 1024 * 1024usize).to_string()) // 2GB
                     .parse()
                     .expect("REQUEST_BODY_LIMIT_BYTES must be a number"),
+                allowed_origins: env::var("ALLOWED_ORIGINS")
+                    .ok()
+                    .map(|v| {
+                        v.split(',')
+                            .map(|s| s.trim().to_string())
+                            .filter(|s| !s.is_empty())
+                            .collect()
+                    })
+                    .unwrap_or_default(),
             },
             storage: StorageConfig {
                 data_dir: data_dir.clone(),

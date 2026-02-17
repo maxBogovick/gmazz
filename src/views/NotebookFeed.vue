@@ -301,6 +301,10 @@ function openCreate() {
 }
 
 async function openRandomNote() {
+  if (!isTauri()) {
+    alert('Случайная запись доступна только в офлайн-режиме.');
+    return;
+  }
   const note = await store.fetchRandomNote();
   if (note) router.push({ name: 'note', params: { id: note.id } });
 }

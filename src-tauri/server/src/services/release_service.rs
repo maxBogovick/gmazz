@@ -113,6 +113,7 @@ impl ReleaseService {
         
         let tmp_dir = std::env::temp_dir().join("gmazz_server_active_db");
         tokio::fs::create_dir_all(&tmp_dir).await?;
+        cleanup_old_active_dbs(&tmp_dir).await;
         let active_db_path = tmp_dir.join(format!("active_{}.db", release.id));
         
         tokio::fs::copy(&abs_path, &active_db_path).await?;
@@ -189,5 +190,18 @@ impl ReleaseService {
         tracing::info!("Switched Public DB to Release: {} (File: {})", release.id, release.file_id);
 
         Ok(())
+    }
+}
+
+async fn cleanup_old_active_dbs(tmp_dir: &std::path::Path) {
+    if let Ok(mut entries) = tokio::fs::read_dir(tmp_dir).await {
+        while let Ok(Some(entry)) = entries.next_entry().await {
+            let path = entry.path();
+            if let Some(name) = path.file_name().and_then(|s| s.to_str()) {
+                if name.starts_with("active_") && name.ends_with(".db") {
+                    let _ = tokio::fs::remove_file(&path).await;
+                }
+            }
+        }
     }
 }

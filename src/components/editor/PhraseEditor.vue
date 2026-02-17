@@ -40,16 +40,7 @@ function getSupportedMimeType() {
   return '';
 }
 
-onMounted(() => {
-  document.addEventListener('dragover', handleDragOver);
-  document.addEventListener('dragleave', handleDragLeave);
-  document.addEventListener('drop', handleDrop);
-});
-
 onUnmounted(() => {
-  document.removeEventListener('dragover', handleDragOver);
-  document.removeEventListener('dragleave', handleDragLeave);
-  document.removeEventListener('drop', handleDrop);
   if (recordingTimer.value) clearInterval(recordingTimer.value);
   if (playbackUrl.value) URL.revokeObjectURL(playbackUrl.value);
   stopRecording();
@@ -115,6 +106,10 @@ async function toggleRecording(e: Event) {
 
 async function startRecording() {
   try {
+    if (!('MediaRecorder' in window)) {
+      alert('Запись недоступна в этом браузере.');
+      return;
+    }
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
     const mimeType = getSupportedMimeType();
@@ -171,6 +166,9 @@ function formatTime(seconds: number) {
 
 function clearRecording() {
   fileName.value = '';
+  if (playbackUrl.value) {
+    URL.revokeObjectURL(playbackUrl.value);
+  }
   playbackUrl.value = null;
   emit('update:filePath', '', []);
 }
@@ -213,6 +211,9 @@ function handleKeydown(event: KeyboardEvent) {
 
       <div
         @click="triggerFileDialog"
+        @dragover="handleDragOver"
+        @dragleave="handleDragLeave"
+        @drop="handleDrop"
         :class="[
           'relative bg-[#F5F1E8] border-2 border-dashed rounded-lg p-8 transition-all duration-300 cursor-pointer',
           isDragging

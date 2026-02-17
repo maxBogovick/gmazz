@@ -18,29 +18,33 @@ async fn run_cleanup_loop(state: Arc<AppState>) {
         timer.tick().await;
         tracing::info!("Starting background cleanup...");
 
-        if let Err(e) = cleanup_tmp_files(&state).await {
-            tracing::error!("Cleanup tmp files failed: {}", e);
+        match cleanup_tmp_files(&state).await {
+            Ok(count) => tracing::info!("Cleanup tmp files removed: {}", count),
+            Err(e) => tracing::error!("Cleanup tmp files failed: {}", e),
         }
 
-        if let Err(e) = cleanup_expired_archives(&state).await {
-            tracing::error!("Cleanup expired archives failed: {}", e);
+        match cleanup_expired_archives(&state).await {
+            Ok(count) => tracing::info!("Cleanup expired archives removed: {}", count),
+            Err(e) => tracing::error!("Cleanup expired archives failed: {}", e),
         }
-        
-        if let Err(e) = cleanup_soft_deleted_files(&state).await {
-             tracing::error!("Cleanup soft-deleted files failed: {}", e);
+
+        match cleanup_soft_deleted_files(&state).await {
+            Ok(count) => tracing::info!("Cleanup soft-deleted files removed: {}", count),
+            Err(e) => tracing::error!("Cleanup soft-deleted files failed: {}", e),
         }
 
         tracing::info!("Background cleanup finished.");
     }
 }
 
-async fn cleanup_tmp_files(state: &Arc<AppState>) -> anyhow::Result<()> {
+async fn cleanup_tmp_files(state: &Arc<AppState>) -> anyhow::Result<usize> {
     let tmp_dir = state.storage.get_absolute_path("tmp");
-    if !tmp_dir.exists() { return Ok(()); }
+    if !tmp_dir.exists() { return Ok(0); }
 
     let mut entries = tokio::fs::read_dir(tmp_dir).await?;
     let now = std::time::SystemTime::now();
     let ttl = Duration::from_secs(state.config.storage.tmp_ttl_seconds);
+    let mut removed = 0;
 
     while let Some(entry) = entries.next_entry().await.ok().flatten() {
         if let Ok(metadata) = entry.metadata().await {
@@ -48,16 +52,18 @@ async fn cleanup_tmp_files(state: &Arc<AppState>) -> anyhow::Result<()> {
                 if let Ok(age) = now.duration_since(modified) {
                     if age > ttl {
                         tracing::info!("Removing old tmp file: {:?}", entry.path());
-                        let _ = tokio::fs::remove_file(entry.path()).await;
+                        if tokio::fs::remove_file(entry.path()).await.is_ok() {
+                            removed += 1;
+                        }
                     }
                 }
             }
         }
     }
-    Ok(())
+    Ok(removed)
 }
 
-async fn cleanup_expired_archives(state: &Arc<AppState>) -> anyhow::Result<()> {
+async fn cleanup_expired_archives(state: &Arc<AppState>) -> anyhow::Result<usize> {
     // 1. Get expired archives from DB
     let now = Utc::now().timestamp();
     
@@ -70,6 +76,7 @@ async fn cleanup_expired_archives(state: &Arc<AppState>) -> anyhow::Result<()> {
     .fetch_all(&state.repo.pool)
     .await?;
 
+    let mut removed = 0;
     for (id, path) in expired {
         tracing::info!("Removing expired archive: {}", id);
         
@@ -86,12 +93,13 @@ async fn cleanup_expired_archives(state: &Arc<AppState>) -> anyhow::Result<()> {
             .bind(id)
             .execute(&state.repo.pool)
             .await?;
+        removed += 1;
     }
 
-    Ok(())
+    Ok(removed)
 }
 
-async fn cleanup_soft_deleted_files(state: &Arc<AppState>) -> anyhow::Result<()> {
+async fn cleanup_soft_deleted_files(state: &Arc<AppState>) -> anyhow::Result<usize> {
     let now = Utc::now().timestamp();
     let retention_days = state.config.retention.soft_delete_days as i64;
     let cutoff = now - (retention_days * 24 * 3600);
@@ -103,6 +111,7 @@ async fn cleanup_soft_deleted_files(state: &Arc<AppState>) -> anyhow::Result<()>
     .fetch_all(&state.repo.pool)
     .await?;
 
+    let mut removed = 0;
     for (id, path) in to_delete {
         tracing::info!("Permanently deleting file: {}", id);
 
@@ -117,7 +126,8 @@ async fn cleanup_soft_deleted_files(state: &Arc<AppState>) -> anyhow::Result<()>
             .bind(id)
             .execute(&state.repo.pool)
             .await?;
+        removed += 1;
     }
 
-    Ok(())
+    Ok(removed)
 }

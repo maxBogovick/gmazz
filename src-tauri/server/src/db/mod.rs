@@ -1,6 +1,6 @@
 use sqlx::{sqlite::SqlitePoolOptions, Pool, Sqlite, migrate::MigrateDatabase};
 use anyhow::Result;
-use tracing::{info, warn};
+use tracing::info;
 use std::path::Path;
 
 pub mod repo;
@@ -37,6 +37,7 @@ impl Db {
         sqlx::query("PRAGMA synchronous = NORMAL;").execute(&pool).await?;
         sqlx::query("PRAGMA foreign_keys = ON;").execute(&pool).await?;
         sqlx::query("PRAGMA temp_store = MEMORY;").execute(&pool).await?;
+        sqlx::query("PRAGMA busy_timeout = 5000;").execute(&pool).await?;
 
         Ok(Self { pool })
     }

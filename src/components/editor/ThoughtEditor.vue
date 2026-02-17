@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue';
 
-defineProps<{
+const props = defineProps<{
   modelValue: string;
 }>();
 
@@ -37,7 +37,7 @@ function adjustHeight() {
   }
 }
 
-watch(() => textarea.value, () => {
+watch(() => props.modelValue, () => {
   adjustHeight();
 });
 </script>

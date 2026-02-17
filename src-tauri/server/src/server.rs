@@ -6,7 +6,7 @@ use axum::{
 };
 use tower_http::trace::TraceLayer;
 use tower_http::limit::RequestBodyLimitLayer;
-use tower_http::cors::{CorsLayer, Any};
+use tower_http::cors::{CorsLayer, Any, AllowOrigin};
 use std::sync::Arc;
 use crate::{AppState};
 use crate::api::files::{upload_handler, download_handler, list_handler, delete_handler, get_file_meta_handler, FileResponse, ListParams};
@@ -21,6 +21,8 @@ use axum::middleware::Next;
 use axum::http::{StatusCode, HeaderName};
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
+use governor::{Quota, RateLimiter, state::keyed::DashMapStateStore, clock::DefaultClock};
+use std::num::NonZeroU32;
 
 use crate::api::public::{list_public_notes_handler, get_public_note_handler, PublicNote, NoteFilter};
 use crate::api::settings::{get_all_settings_handler, get_setting_handler, set_setting_handler, delete_setting_handler, SettingResponse, SetSettingRequest, AllSettingsResponse};
@@ -77,7 +79,8 @@ pub async fn app(state: Arc<AppState>) -> Router {
         .route("/notes/:id", get(get_public_note_handler))
         .route("/auth/guest", post(crate::api::auth::create_guest_key_handler))
         .route("/settings", get(get_all_settings_handler))
-        .route("/settings/:key", get(get_setting_handler));
+        .route("/settings/:key", get(get_setting_handler))
+        .layer(middleware::from_fn(public_rate_limit));
 
     let protected_api_routes = Router::new()
         .route("/files", post(upload_handler))
@@ -103,8 +106,18 @@ pub async fn app(state: Arc<AppState>) -> Router {
         .route("/keys/:id/activate", axum::routing::put(activate_key_handler))
         .layer(middleware::from_fn_with_state(state.clone(), admin_auth_middleware));
 
-    let cors = CorsLayer::new()
-        .allow_origin(Any)
+    let cors = if state.config.server.allowed_origins.is_empty() {
+        CorsLayer::new().allow_origin(Any)
+    } else {
+        let origins: Vec<axum::http::HeaderValue> = state
+            .config
+            .server
+            .allowed_origins
+            .iter()
+            .filter_map(|origin| origin.parse().ok())
+            .collect();
+        CorsLayer::new().allow_origin(AllowOrigin::list(origins))
+    }
         .allow_methods(Any)
         .allow_headers([
             axum::http::header::CONTENT_TYPE,
@@ -136,6 +149,26 @@ pub async fn app(state: Arc<AppState>) -> Router {
     }
 
     router
+}
+
+lazy_static::lazy_static! {
+    static ref PUBLIC_RATE_LIMITER: RateLimiter<String, DashMapStateStore<String>, DefaultClock> =
+        RateLimiter::keyed(Quota::per_minute(NonZeroU32::new(120).unwrap()));
+}
+
+async fn public_rate_limit(req: Request, next: Next) -> Result<impl IntoResponse, StatusCode> {
+    let key = req
+        .headers()
+        .get("x-forwarded-for")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| "public".to_string());
+
+    if PUBLIC_RATE_LIMITER.check_key(&key).is_err() {
+        return Err(StatusCode::TOO_MANY_REQUESTS);
+    }
+
+    Ok(next.run(req).await)
 }
 
 async fn track_metrics(req: Request, next: Next) -> impl axum::response::IntoResponse {

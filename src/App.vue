@@ -15,16 +15,21 @@ onUnmounted(() => {
 });
 
 function handleGlobalHotkeys(event: KeyboardEvent) {
+  const target = event.target as HTMLElement | null;
+  if (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) {
+    return;
+  }
   const isMod = event.metaKey || event.ctrlKey;
+  const key = event.key.toLowerCase();
 
   // Cmd + N -> New Thought (direct)
-  if (isMod && event.key === 'n' && !event.shiftKey) {
+  if (isMod && key === 'n' && !event.shiftKey) {
     event.preventDefault();
     router.push({ name: 'create', query: { type: 'thought' } });
   }
 
   // Cmd + Shift + N -> Select Type
-  if (isMod && event.key === 'n' && event.shiftKey) {
+  if (isMod && key === 'n' && event.shiftKey) {
     event.preventDefault();
     router.push({ name: 'create' });
   }
@@ -33,7 +38,7 @@ function handleGlobalHotkeys(event: KeyboardEvent) {
   // for more nuanced behavior (save before exit, etc.)
 
   // Cmd + S -> Global Save Trigger
-  if (isMod && event.key === 's') {
+  if (isMod && key === 's') {
     event.preventDefault();
     // Dispatch a custom event that editors can listen to
     window.dispatchEvent(new CustomEvent('jazz-save'));

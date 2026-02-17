@@ -1,9 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { readFile } from '@tauri-apps/plugin-fs';
 import type { Note, CreateNoteRequest, UpdateNoteRequest, NotesFilter } from '../types';
-import { SERVER_URL, getSetting } from './server';
-
-// Simple detection of Tauri environment
+import { SERVER_URL, getSetting, getApiKey, isTauri } from './server';
 
 export async function createNote(request: CreateNoteRequest): Promise<Note> {
     if (!isTauri()) throw new Error('Action not supported in Web Mode');
@@ -70,6 +68,7 @@ export async function getRandomNote(): Promise<Note> {
 }
 
 export async function deleteNote(id: string): Promise<void> {
+    console.log("deleteNote called with id:", id);
     if (!isTauri()) throw new Error('Action not supported in Web Mode');
     await invoke('delete_note', { id });
     // syncDatabase removed
@@ -89,8 +88,6 @@ export async function uploadFile(
         fileType: file.type
     });
 }
-
-import { getApiKey, isTauri } from './server';
 
 export async function getAssetPath(relativePath: string): Promise<string> {
     if (isTauri()) {

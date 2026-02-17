@@ -2,7 +2,6 @@ use std::path::{Path, PathBuf};
 use chrono::Utc;
 use tokio::fs;
 use anyhow::{Result, Context};
-use uuid::Uuid;
 
 #[derive(Clone)]
 pub struct StorageManager {

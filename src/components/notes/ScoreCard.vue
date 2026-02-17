@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 import type { Note } from '../../types';
 import { getAssetPath } from '../../api/notes';
 
@@ -8,10 +8,34 @@ const props = defineProps<{
 }>();
 
 const imagePath = ref<string>('');
+let lastObjectUrl: string | null = null;
 
-onMounted(async () => {
+async function loadImage() {
   if (props.note.metadata.file_path) {
-    imagePath.value = await getAssetPath(props.note.metadata.file_path);
+    const path = await getAssetPath(props.note.metadata.file_path);
+    if (lastObjectUrl && lastObjectUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(lastObjectUrl);
+    }
+    imagePath.value = path;
+    lastObjectUrl = path;
+  } else {
+    if (lastObjectUrl && lastObjectUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(lastObjectUrl);
+    }
+    lastObjectUrl = null;
+    imagePath.value = '';
+  }
+}
+
+onMounted(loadImage);
+
+watch(() => props.note.metadata.file_path, () => {
+  loadImage();
+});
+
+onUnmounted(() => {
+  if (lastObjectUrl && lastObjectUrl.startsWith('blob:')) {
+    URL.revokeObjectURL(lastObjectUrl);
   }
 });
 </script>

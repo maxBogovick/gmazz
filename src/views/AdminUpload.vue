@@ -12,7 +12,7 @@ import {
 const router = useRouter();
 const isTauriEnv = isTauri();
 
-const apiKey = ref('');
+const apiKey = ref(localStorage.getItem('gmazz_api_key') || '');
 const webReleaseUser = ref(isTauriEnv ? '' : (localStorage.getItem('releaseUser') || ''));
 const webReleasePass = ref('');
 const webReleaseError = ref<string | null>(null);
@@ -49,6 +49,7 @@ const handleLogin = async () => {
 const handleLogout = () => {
   isAuthed.value = false;
   webReleasePass.value = '';
+  localStorage.removeItem('adminSecret');
 };
 
 const handleFileSelect = (event: Event) => {

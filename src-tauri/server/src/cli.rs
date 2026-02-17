@@ -31,6 +31,10 @@ pub enum KeyCommands {
         #[arg(short, long)]
         name: String,
     },
+    Activate {
+        #[arg(short, long)]
+        id: String,
+    },
     Revoke {
         #[arg(short, long)]
         id: String,
@@ -77,6 +81,12 @@ pub async fn handle_cli(state: Arc<AppState>, cli: Cli) -> anyhow::Result<()> {
                     .bind(id.clone())
                     .execute(&state.repo.pool).await?;
                 println!("App {} revoked.", id);
+            },
+            KeyCommands::Activate { id } => {
+                sqlx::query("UPDATE apps SET is_active = 1 WHERE id = ?")
+                    .bind(id.clone())
+                    .execute(&state.repo.pool).await?;
+                println!("App {} activated.", id);
             }
         },
         Some(Commands::Doctor) => {

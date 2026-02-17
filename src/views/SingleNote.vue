@@ -5,6 +5,7 @@ import { useNotesStore } from '../store/notes';
 import { getAssetPath } from '../api/notes';
 import { getSetting, isTauri } from '../api/server';
 import Waveform from '../components/common/Waveform.vue';
+import { ask } from '@tauri-apps/plugin-dialog';
 
 const route = useRoute();
 const router = useRouter();
@@ -20,6 +21,9 @@ const isReducedMotion = ref(false);
 const isLightAmbient = ref(false);
 let motionMedia: MediaQueryList | null = null;
 let isAnimating = false;
+let audioEndedHandler: (() => void) | null = null;
+let lastAudioUrl: string | null = null;
+let lastImageUrl: string | null = null;
 
 const note = computed(() => store.currentNote);
 
@@ -66,11 +70,19 @@ let animationFrame: number;
 async function loadResources() {
   if (!note.value) return;
 
-  console.log("current node is = ", note.value);
   // Reset
   if (audio.value) {
+    if (audioEndedHandler) {
+      audio.value.removeEventListener('ended', audioEndedHandler);
+    }
     audio.value.pause();
     audio.value = null;
+  }
+  if (lastAudioUrl && lastAudioUrl.startsWith('blob:')) {
+    URL.revokeObjectURL(lastAudioUrl);
+  }
+  if (lastImageUrl && lastImageUrl.startsWith('blob:')) {
+    URL.revokeObjectURL(lastImageUrl);
   }
   imagePath.value = '';
   isPlaying.value = false;
@@ -78,18 +90,23 @@ async function loadResources() {
   // Load Audio
   if (note.value?.note_type === 'phrase' && note.value.metadata.file_path) {
     const path = await getAssetPath(note.value.metadata.file_path);
+    lastAudioUrl = path;
     audio.value = new Audio(path);
-    audio.value.addEventListener('ended', () => { isPlaying.value = false; });
+    audioEndedHandler = () => { isPlaying.value = false; };
+    audio.value.addEventListener('ended', audioEndedHandler);
   } else if (note.value.note_type === 'score' && note.value.metadata.audio_path) {
     const path = await getAssetPath(note.value.metadata.audio_path);
-    console.log("audio path = ", path);
+    lastAudioUrl = path;
     audio.value = new Audio(path);
-    audio.value.addEventListener('ended', () => { isPlaying.value = false; });
+    audioEndedHandler = () => { isPlaying.value = false; };
+    audio.value.addEventListener('ended', audioEndedHandler);
   }
 
   // Load Score Image/PDF
   if (note.value?.note_type === 'score' && note.value.metadata.file_path) {
-    imagePath.value = await getAssetPath(note.value.metadata.file_path);
+    const path = await getAssetPath(note.value.metadata.file_path);
+    imagePath.value = path;
+    lastImageUrl = path;
   }
 }
 
@@ -115,8 +132,17 @@ watch(note, loadResources);
 
 onUnmounted(() => {
   if (audio.value) {
+    if (audioEndedHandler) {
+      audio.value.removeEventListener('ended', audioEndedHandler);
+    }
     audio.value.pause();
     audio.value = null;
+  }
+  if (lastAudioUrl && lastAudioUrl.startsWith('blob:')) {
+    URL.revokeObjectURL(lastAudioUrl);
+  }
+  if (lastImageUrl && lastImageUrl.startsWith('blob:')) {
+    URL.revokeObjectURL(lastImageUrl);
   }
   store.clearCurrentNote();
   document.removeEventListener('keydown', handleKeydown);
@@ -191,7 +217,16 @@ function togglePlay() {
 async function handleDelete() {
   if (!note.value) return;
 
-  const confirmed = confirm("Удалить эту работу из архива? Это действие нельзя отменить.");
+  let confirmed = false;
+  if (isTauri()) {
+    confirmed = await ask("Удалить эту работу из архива? Это действие нельзя отменить.", {
+      title: 'Подтверждение удаления',
+      kind: 'warning'
+    });
+  } else {
+    confirmed = confirm("Удалить эту работу из архива? Это действие нельзя отменить.");
+  }
+
   if (confirmed) {
     const success = await store.deleteNote(note.value.id);
     if (success) {

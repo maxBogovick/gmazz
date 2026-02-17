@@ -1,7 +1,7 @@
 use crate::models::{CreateNoteRequest, Note, NoteMetadata, NoteType, NotesFilter, Setting, UpdateNoteRequest};
 use crate::sync::SyncClient;
 use chrono::Utc;
-use sqlx::{Pool, Sqlite};
+use sqlx::{Pool, Sqlite, QueryBuilder};
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State};
 use uuid::Uuid;
@@ -165,32 +165,34 @@ pub async fn get_notes(
         offset: Some(0),
     });
 
-    let mut query = String::from(
+    let mut query = QueryBuilder::new(
         "SELECT id, note_type, content, metadata, created_at, updated_at, is_public FROM notes WHERE 1=1",
     );
 
     if let Some(ref note_type) = filter.note_type {
-        query.push_str(&format!(" AND note_type = '{}'", note_type.as_str()));
+        query.push(" AND note_type = ");
+        query.push_bind(note_type.as_str());
     }
 
     if let Some(year) = filter.year {
-        query.push_str(&format!(
-            " AND strftime('%Y', created_at) = '{}'",
-            year
-        ));
+        query.push(" AND strftime('%Y', created_at) = ");
+        query.push_bind(year.to_string());
     }
 
-    query.push_str(" ORDER BY created_at DESC");
+    query.push(" ORDER BY created_at DESC");
 
     if let Some(limit) = filter.limit {
-        query.push_str(&format!(" LIMIT {}", limit));
+        query.push(" LIMIT ");
+        query.push_bind(limit);
     }
 
     if let Some(offset) = filter.offset {
-        query.push_str(&format!(" OFFSET {}", offset));
+        query.push(" OFFSET ");
+        query.push_bind(offset);
     }
 
-    let rows = sqlx::query_as::<_, (String, String, String, String, String, String, bool)>(&query)
+    let rows = query
+        .build_query_as::<(String, String, String, String, String, String, bool)>()
         .fetch_all(&state.db)
         .await
         .map_err(|e| e.to_string())?;
@@ -309,6 +311,10 @@ pub async fn upload_file(
     file_data: Vec<u8>,
     file_type: String,
 ) -> Result<String, String> {
+    const MAX_FILE_SIZE_BYTES: usize = 200 * 1024 * 1024;
+    if file_data.len() > MAX_FILE_SIZE_BYTES {
+        return Err("File too large".to_string());
+    }
     let id = Uuid::new_v4();
     let file_path = id.to_string(); // Storing as flat file in storage_dir
     let full_path = state.storage_dir.join(&file_path);
@@ -357,6 +363,9 @@ pub async fn get_asset_path(state: State<'_, AppState>, relative_path: String) -
     }
 
     let full_path = state.storage_dir.join(&relative_path);
+    if !full_path.exists() {
+        return Err("Asset not found on disk".to_string());
+    }
 
     // Try to get mime_type from DB assuming relative_path is the ID
     let mime_type: Option<String> = sqlx::query_scalar("SELECT mime_type FROM files WHERE id = ?")
