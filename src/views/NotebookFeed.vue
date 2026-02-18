@@ -5,6 +5,7 @@ import { useNotesStore } from '../store/notes';
 import { getSetting, isTauri, setSetting, uploadFileAndGetId } from '../api/server';
 import { getAssetPath } from '../api/notes';
 import type { Note, NoteType } from '../types';
+import NoteCard from '../components/NoteCard.vue';
 
 const router = useRouter();
 const store = useNotesStore();
@@ -18,7 +19,6 @@ const isLightAmbient = ref(false);
 let motionMedia: MediaQueryList | null = null;
 let isAnimating = false;
 
-// Profile photo
 const isTauriEnv = !!(window as any).__TAURI_INTERNALS__;
 const canEditSettings = computed(() => isTauriEnv);
 const profilePhotoUrl = ref<string>('');
@@ -26,14 +26,13 @@ const isPhotoHovered = ref(false);
 const isUploadingPhoto = ref(false);
 const photoInputRef = ref<HTMLInputElement | null>(null);
 
-// Editable Profile Data
 const profileData = ref({
   firstName: 'Сергей',
   lastName: 'Гмыря',
   role: 'Музыкант',
   description: 'Мысли, гармонии, мелодические фразы и партитуры — живой архив музыкальных идей',
   quote: 'Музыка — это то, что происходит между нотами',
-  startYear: '1974'
+  startYear: 'Большой опыт'
 });
 
 const maestroBlock = ref({
@@ -43,192 +42,139 @@ const maestroBlock = ref({
   cta: '+ создать запись'
 });
 
+const genres = [
+  {
+    name: 'Джаз', icon: '🎷',
+    sub: 'Импровизация & свинг',
+    desc: 'Свобода выражения через сложные гармонии и импровизацию',
+    color: '#C17A3A', secondary: '#8B5A2B',
+    gradient: 'linear-gradient(135deg, #D4A574 0%, #B87333 45%, #8B5A2B 100%)',
+    glow: 'rgba(193, 122, 58, 0.4)',
+    pattern: '♩ ♪ ♫'
+  },
+  {
+    name: 'Госпел', icon: '🎹',
+    sub: 'Дух & вдохновение',
+    desc: 'Духовная музыка, наполненная эмоциями и верой',
+    color: '#2D7A6B', secondary: '#1A5647',
+    gradient: 'linear-gradient(135deg, #4FA89A 0%, #2D7A6B 45%, #1A5647 100%)',
+    glow: 'rgba(45, 122, 107, 0.4)',
+    pattern: '♬ 𝄞 ♮'
+  },
+  {
+    name: 'Акапелла', icon: '🎵',
+    sub: 'Голос без границ',
+    desc: 'Чистота вокала, гармония голосов в идеальном созвучии',
+    color: '#7A4BA3', secondary: '#5A3578',
+    gradient: 'linear-gradient(135deg, #9B6BC7 0%, #7A4BA3 45%, #5A3578 100%)',
+    glow: 'rgba(122, 75, 163, 0.4)',
+    pattern: '♪ ♫ 𝅘𝅥𝅮'
+  },
+  {
+    name: 'Классика', icon: '🎼',
+    sub: 'Вечная традиция',
+    desc: 'Бессмертные произведения, проверенные временем',
+    color: '#2A5C8F', secondary: '#1A3D5F',
+    gradient: 'linear-gradient(135deg, #4682B4 0%, #2A5C8F 45%, #1A3D5F 100%)',
+    glow: 'rgba(42, 92, 143, 0.4)',
+    pattern: '𝄚 ♮ ◈'
+  },
+];
+
 const featuredNoteIds = ref<string[]>([]);
 const isEditingFeatured = ref(false);
+const currentPlayingId = ref<string | null>(null);
+const audioPlayer = ref<HTMLAudioElement | null>(null);
 
 async function loadProfileData() {
   try {
     const [fname, lname, role, desc, quote, year] = await Promise.all([
-      getSetting('profile_firstname'),
-      getSetting('profile_lastname'),
-      getSetting('profile_role'),
-      getSetting('profile_description'),
-      getSetting('profile_quote'),
-      getSetting('archive_start_year')
+      getSetting('profile_firstname'), getSetting('profile_lastname'),
+      getSetting('profile_role'), getSetting('profile_description'),
+      getSetting('profile_quote'), getSetting('archive_start_year')
     ]);
-    
     if (fname) profileData.value.firstName = fname;
     if (lname) profileData.value.lastName = lname;
     if (role) profileData.value.role = role;
     if (desc) profileData.value.description = desc;
     if (quote) profileData.value.quote = quote;
     if (year) profileData.value.startYear = year;
-  } catch (e) {
-    console.error('Failed to load profile data', e);
-  }
+  } catch (e) { console.error('Failed to load profile data', e); }
 }
 
 async function saveProfileField(key: string, value: string) {
   if (!canEditSettings.value) return;
-  try {
-    await setSetting(key, value);
-  } catch (e) {
-    console.error(`Failed to save ${key}`, e);
-  }
+  try { await setSetting(key, value); } catch (e) { console.error(`Failed to save ${key}`, e); }
 }
 
 async function loadMaestroBlock() {
   try {
     const [title, headline, description, cta, featured] = await Promise.all([
-      getSetting('maestro_title'),
-      getSetting('maestro_headline'),
-      getSetting('maestro_description'),
-      getSetting('maestro_cta'),
+      getSetting('maestro_title'), getSetting('maestro_headline'),
+      getSetting('maestro_description'), getSetting('maestro_cta'),
       getSetting('featured_note_ids')
     ]);
-
     if (title) maestroBlock.value.title = title;
     if (headline) maestroBlock.value.headline = headline;
     if (description) maestroBlock.value.description = description;
     if (cta) maestroBlock.value.cta = cta;
-
     if (featured) {
       try {
         const parsed = JSON.parse(featured);
-        if (Array.isArray(parsed)) {
-          featuredNoteIds.value = parsed.filter((id) => typeof id === 'string');
-        }
-      } catch {
-        featuredNoteIds.value = [];
-      }
+        if (Array.isArray(parsed)) featuredNoteIds.value = parsed.filter((id) => typeof id === 'string');
+      } catch { featuredNoteIds.value = []; }
     }
-  } catch (e) {
-    console.error('Failed to load maestro block', e);
-  }
+  } catch (e) { console.error('Failed to load maestro block', e); }
 }
 
 async function saveMaestroField(key: string, value: string) {
   if (!canEditSettings.value) return;
-  try {
-    await setSetting(key, value);
-  } catch (e) {
-    console.error(`Failed to save ${key}`, e);
-  }
+  try { await setSetting(key, value); } catch (e) { console.error(`Failed to save ${key}`, e); }
 }
 
 async function persistFeaturedNotes() {
   if (!canEditSettings.value) return;
-  try {
-    await setSetting('featured_note_ids', JSON.stringify(featuredNoteIds.value));
-  } catch (e) {
-    console.error('Failed to save featured notes', e);
-  }
+  try { await setSetting('featured_note_ids', JSON.stringify(featuredNoteIds.value)); } catch (e) { console.error('Failed to save featured notes', e); }
 }
 
-// Load profile photo from server
 async function loadProfilePhoto() {
   try {
     const url = await getSetting('profile_photo');
-    if (url) {
-      // Use getAssetPath to get proper URL with authentication
-      profilePhotoUrl.value = await getAssetPath(url);
-    }
-  } catch (error) {
-    console.error('Failed to load profile photo:', error);
-  }
+    if (url) profilePhotoUrl.value = await getAssetPath(url);
+  } catch (error) { console.error('Failed to load profile photo:', error); }
 }
 
-function triggerPhotoUpload() {
-  photoInputRef.value?.click();
-}
+function triggerPhotoUpload() { photoInputRef.value?.click(); }
 
 async function handlePhotoChange(event: Event) {
   const input = event.target as HTMLInputElement;
   const file = input.files?.[0];
   if (!file) return;
-
-  if (!file.type.startsWith('image/')) {
-    alert('Пожалуйста, выберите изображение');
-    return;
-  }
-
+  if (!file.type.startsWith('image/')) { alert('Пожалуйста, выберите изображение'); return; }
   isUploadingPhoto.value = true;
   try {
-    // Upload and store file id (keeps releases offline-friendly)
     const fileId = await uploadFileAndGetId(file);
     await setSetting('profile_photo', fileId);
     profilePhotoUrl.value = await getAssetPath(fileId);
-  } catch (error) {
-    console.error('Failed to upload photo:', error);
-    alert('Не удалось загрузить фото');
-  } finally {
-    isUploadingPhoto.value = false;
-    input.value = '';
-  }
+  } catch (error) { console.error('Failed to upload photo:', error); alert('Не удалось загрузить фото'); }
+  finally { isUploadingPhoto.value = false; input.value = ''; }
 }
 
-
-const typeConfig: Record<NoteType, { name: string; icon: string; accent: string; bg: string; gradient: string; frequency: number }> = {
-  thought: {
-    name: 'Мысль',
-    icon: '✦',
-    accent: '#C4956A',
-    bg: 'linear-gradient(135deg, #FDF8F3 0%, #F9F1E8 100%)',
-    gradient: 'linear-gradient(135deg, rgba(196, 149, 106, 0.15) 0%, rgba(196, 149, 106, 0.05) 100%)',
-    frequency: 261.63 // C4
-  },
-  harmony: {
-    name: 'Гармония',
-    icon: '♮',
-    accent: '#7B9E87',
-    bg: 'linear-gradient(135deg, #F5F9F6 0%, #EBF4EE 100%)',
-    gradient: 'linear-gradient(135deg, rgba(123, 158, 135, 0.15) 0%, rgba(123, 158, 135, 0.05) 100%)',
-    frequency: 329.63 // E4
-  },
-  phrase: {
-    name: 'Фраза',
-    icon: '𝄞',
-    accent: '#8B7BA8',
-    bg: 'linear-gradient(135deg, #F8F6FA 0%, #F0ECF5 100%)',
-    gradient: 'linear-gradient(135deg, rgba(139, 123, 168, 0.15) 0%, rgba(139, 123, 168, 0.05) 100%)',
-    frequency: 392.00 // G4
-  },
-  rhythm: {
-    name: 'Ритм',
-    icon: '◈',
-    accent: '#B8856E',
-    bg: 'linear-gradient(135deg, #FBF6F4 0%, #F6EDE8 100%)',
-    gradient: 'linear-gradient(135deg, rgba(184, 133, 110, 0.15) 0%, rgba(184, 133, 110, 0.05) 100%)',
-    frequency: 440.00 // A4
-  },
-  score: {
-    name: 'Партитура',
-    icon: '𝄚',
-    accent: '#6B8FAD',
-    bg: 'linear-gradient(135deg, #F5F8FA 0%, #EAF1F6 100%)',
-    gradient: 'linear-gradient(135deg, rgba(107, 143, 173, 0.15) 0%, rgba(107, 143, 173, 0.05) 100%)',
-    frequency: 523.25 // C5
-  },
+const typeConfig: Record<NoteType, { name: string; icon: string; accent: string; light: string; dark: string; tag: string }> = {
+  thought: { name: 'Мысль',      icon: '✦',  accent: '#B8722E', light: '#FDF4E8', dark: '#6B3E10', tag: '#FAE4C0' },
+  phrase:  { name: 'Фраза',      icon: '𝄞',  accent: '#6B4A8E', light: '#F2EDF8', dark: '#3A2058', tag: '#D8C4F5' },
+  score:   { name: 'Партитура',  icon: '𝄚',  accent: '#2A5C90', light: '#E8F0FA', dark: '#102E50', tag: '#B5CFEE' },
 };
 
 let animationFrame: number;
 
 onMounted(async () => {
-  await Promise.all([
-    store.fetchNotes(),
-    loadProfilePhoto(),
-    loadProfileData(),
-    loadMaestroBlock()
-  ]);
-  const savedAmbient = isTauri()
-    ? await getSetting('gmazz_light_ambient')
-    : localStorage.getItem('gmazz_light_ambient');
+  await Promise.all([store.fetchNotes(), loadProfilePhoto(), loadProfileData(), loadMaestroBlock()]);
+  const savedAmbient = isTauri() ? await getSetting('gmazz_light_ambient') : localStorage.getItem('gmazz_light_ambient');
   isLightAmbient.value = savedAmbient === '1';
   updateMotionPrefs();
   window.addEventListener('resize', updateMotionPrefs, { passive: true });
-  if (motionMedia) {
-    motionMedia.addEventListener('change', updateMotionPrefs);
-  }
+  if (motionMedia) motionMedia.addEventListener('change', updateMotionPrefs);
   window.addEventListener('scroll', handleScroll, { passive: true });
   syncAmbientMotion();
 });
@@ -237,42 +183,28 @@ onUnmounted(() => {
   window.removeEventListener('mousemove', handleMouseMove);
   window.removeEventListener('scroll', handleScroll);
   window.removeEventListener('resize', updateMotionPrefs);
-  if (motionMedia) {
-    motionMedia.removeEventListener('change', updateMotionPrefs);
-  }
+  if (motionMedia) motionMedia.removeEventListener('change', updateMotionPrefs);
   if (animationFrame) cancelAnimationFrame(animationFrame);
+  if (audioPlayer.value) { audioPlayer.value.pause(); audioPlayer.value = null; }
 });
 
 function handleMouseMove(e: MouseEvent) {
-  requestAnimationFrame(() => {
-    mouseX.value = e.clientX / window.innerWidth;
-    mouseY.value = e.clientY / window.innerHeight;
-  });
+  requestAnimationFrame(() => { mouseX.value = e.clientX / window.innerWidth; mouseY.value = e.clientY / window.innerHeight; });
 }
-
-function handleScroll() {
-  scrollY.value = window.scrollY;
-}
-
+function handleScroll() { scrollY.value = window.scrollY; }
 function updateMotionPrefs() {
-  if (!motionMedia) {
-    motionMedia = window.matchMedia('(prefers-reduced-motion: reduce)');
-  }
+  if (!motionMedia) motionMedia = window.matchMedia('(prefers-reduced-motion: reduce)');
   isReducedMotion.value = motionMedia.matches;
   isSmallScreen.value = window.innerWidth < 768;
   syncAmbientMotion();
 }
-
 function syncAmbientMotion() {
   const wantsMotion = !isReducedMotion.value && !isLightAmbient.value;
   if (wantsMotion) {
     window.addEventListener('mousemove', handleMouseMove, { passive: true });
     if (!isAnimating) {
       isAnimating = true;
-      const animate = () => {
-        time.value += 0.01;
-        animationFrame = requestAnimationFrame(animate);
-      };
+      const animate = () => { time.value += 0.008; animationFrame = requestAnimationFrame(animate); };
       animate();
     }
   } else {
@@ -281,79 +213,48 @@ function syncAmbientMotion() {
     isAnimating = false;
   }
 }
-
 async function toggleLightAmbient() {
   isLightAmbient.value = !isLightAmbient.value;
-  if (isTauri()) {
-    await setSetting('gmazz_light_ambient', isLightAmbient.value ? '1' : '0');
-  } else {
-    localStorage.setItem('gmazz_light_ambient', isLightAmbient.value ? '1' : '0');
-  }
+  if (isTauri()) await setSetting('gmazz_light_ambient', isLightAmbient.value ? '1' : '0');
+  else localStorage.setItem('gmazz_light_ambient', isLightAmbient.value ? '1' : '0');
   syncAmbientMotion();
 }
-
-function openNote(note: Note) {
-  router.push({ name: 'note', params: { id: note.id } });
-}
-
-function openCreate() {
-  router.push({ name: 'create' });
-}
-
+function openNote(note: Note) { router.push({ name: 'note', params: { id: note.id } }); }
+function openCreate() { router.push({ name: 'create' }); }
 async function openRandomNote() {
-  if (!isTauri()) {
-    alert('Случайная запись доступна только в офлайн-режиме.');
-    return;
-  }
+  if (!isTauri()) { alert('Случайная запись доступна только в офлайн-режиме.'); return; }
   const note = await store.fetchRandomNote();
   if (note) router.push({ name: 'note', params: { id: note.id } });
 }
-
 function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('ru-RU', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric'
-  });
+  return new Date(dateStr).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' });
 }
-
 function truncate(text: string, len: number): string {
   return text.length > len ? text.slice(0, len) + '…' : text;
 }
-
-const ambientStyle = computed(() => {
-  if (isReducedMotion.value || isLightAmbient.value) {
-    return {
-      background: 'linear-gradient(180deg, #FAF6F2 0%, #F6F1EC 35%, #F3EDE6 70%, #F0E8E0 100%)'
-    };
+async function togglePlayback(event: Event, note: Note) {
+  event.stopPropagation();
+  if (currentPlayingId.value === note.id) {
+    if (audioPlayer.value) { audioPlayer.value.pause(); audioPlayer.value = null; }
+    currentPlayingId.value = null; return;
   }
-  return {
-    background: `
-      radial-gradient(ellipse 100% 70% at ${30 + mouseX.value * 25}% ${20 + mouseY.value * 25}%, rgba(255, 225, 190, 0.25) 0%, transparent 65%),
-      radial-gradient(ellipse 80% 60% at ${70 - mouseX.value * 20}% ${60 + mouseY.value * 20}%, rgba(210, 190, 170, 0.18) 0%, transparent 65%),
-      radial-gradient(ellipse 60% 50% at ${50 + Math.sin(time.value) * 15}% ${50 + Math.cos(time.value * 0.8) * 15}%, rgba(255, 240, 220, 0.15) 0%, transparent 55%),
-      linear-gradient(180deg, #FAF6F2 0%, #F6F1EC 30%, #F3EDE6 70%, #F0E8E0 100%)
-    `
-  };
-});
-
-const headerOpacity = computed(() => Math.min(scrollY.value / 100, 1));
-const parallaxOffset = computed(() => scrollY.value * 0.5);
-
-function getCardSize(index: number) {
-  const pattern = index % 7;
-  return {
-    cols: pattern === 0 ? 'col-span-12 md:col-span-8' :
-        pattern === 5 || pattern === 6 ? 'col-span-12 md:col-span-6' :
-            'col-span-12 md:col-span-4',
-    minHeight: pattern === 0 ? 'min-h-[320px]' : 'min-h-[240px]',
-    truncateLength: pattern === 0 ? 300 : 160
-  };
+  if (audioPlayer.value) audioPlayer.value.pause();
+  let audioPath = '';
+  if (note.note_type === 'phrase' && note.metadata?.file_path) audioPath = note.metadata.file_path;
+  else if (note.note_type === 'score' && note.metadata?.audio_path) audioPath = note.metadata.audio_path;
+  if (!audioPath) return;
+  try {
+    const url = await getAssetPath(audioPath);
+    const audio = new Audio(url);
+    audioPlayer.value = audio;
+    currentPlayingId.value = note.id;
+    audio.addEventListener('ended', () => { currentPlayingId.value = null; audioPlayer.value = null; });
+    await audio.play();
+  } catch (e) { console.error('Failed to play audio', e); currentPlayingId.value = null; }
 }
 
-// Musical notation elements for decoration
-const musicalNotes = ['𝅝', '𝅗𝅥', '𝅘𝅥', '𝅘𝅥𝅮', '𝅘𝅥𝅯', '♩', '♪', '♫', '♬'];
-const floatingNotesCount = computed(() => (isReducedMotion.value || isSmallScreen.value ? 12 : 40));
+const headerScrolled = computed(() => scrollY.value > 40);
+const parallaxOffset = computed(() => scrollY.value * 0.3);
 
 const featuredNotes = computed(() => {
   const notes = store.filteredNotes || [];
@@ -363,1093 +264,1269 @@ const featuredNotes = computed(() => {
   }
   const score = notes.find(n => n.note_type === 'score');
   const phrase = notes.find(n => n.note_type === 'phrase');
-  const harmony = notes.find(n => n.note_type === 'harmony');
-  return [score, phrase, harmony].filter(Boolean) as Note[];
+  return [score, phrase].filter(Boolean) as Note[];
 });
 
-const thoughtHighlights = computed(() => {
-  const notes = store.filteredNotes || [];
-  return notes.filter(n => n.note_type === 'thought').slice(0, 3);
-});
-
+const thoughtHighlights = computed(() => (store.filteredNotes || []).filter(n => n.note_type === 'thought').slice(0, 3));
 const selectableNotes = computed(() => store.filteredNotes.slice(0, 30));
 
 function toggleFeatured(noteId: string) {
-  const index = featuredNoteIds.value.indexOf(noteId);
-  if (index >= 0) {
-    featuredNoteIds.value.splice(index, 1);
-  } else {
-    featuredNoteIds.value.push(noteId);
-  }
+  const idx = featuredNoteIds.value.indexOf(noteId);
+  if (idx >= 0) featuredNoteIds.value.splice(idx, 1);
+  else featuredNoteIds.value.push(noteId);
   persistFeaturedNotes();
 }
 
-function getCardChips(note: Note): string[] {
-  const chips: string[] = [];
-
-  if (note.note_type === 'thought') {
-    if (note.metadata?.tags?.length) {
-      chips.push(...note.metadata.tags.slice(0, 2).map(tag => `#${tag}`));
-    }
-  } else if (note.note_type === 'harmony') {
-    if (note.metadata?.chord_symbol) chips.push(`аккорд ${note.metadata.chord_symbol}`);
-    if (note.metadata?.key) chips.push(`тон ${note.metadata.key}`);
-  } else if (note.note_type === 'phrase') {
-    if (note.metadata?.file_path) chips.push('аудио');
-    if (note.metadata?.duration) chips.push(`${note.metadata.duration}с`);
-  } else if (note.note_type === 'rhythm') {
-    if (note.metadata?.time_signature) chips.push(`размер ${note.metadata.time_signature}`);
-    if (note.metadata?.mood) chips.push(note.metadata.mood);
-  } else if (note.note_type === 'score') {
-    if (note.metadata?.key) chips.push(`тон ${note.metadata.key}`);
-    if (note.metadata?.audio_path) chips.push('аудио');
-  }
-
-  return chips.slice(0, 3);
-}
+const noteTypeStats = computed(() => {
+  const counts: Record<string, number> = {};
+  store.notes.forEach(n => { counts[n.note_type] = (counts[n.note_type] || 0) + 1; });
+  return counts;
+});
 </script>
 
 <template>
-  <div class="min-h-screen overflow-x-hidden" :style="ambientStyle">
+  <div class="gz-root">
 
-    <!-- Enhanced Atmospheric Layers with Musical Theme -->
-    <div v-if="!isReducedMotion && !isLightAmbient" class="fixed inset-0 pointer-events-none overflow-hidden">
-      <!-- Primary warm glow -->
-      <div
-          class="absolute -top-1/3 -left-1/4 w-[1200px] h-[1200px] rounded-full opacity-60 will-change-transform blur-[100px]"
-          style="background: radial-gradient(circle, rgba(255, 230, 200, 0.9) 0%, rgba(255, 215, 170, 0.5) 35%, transparent 70%);"
-          :style="{ transform: `translate3d(${mouseX * 50}px, ${mouseY * 50}px, 0) scale(${1 + Math.sin(time) * 0.08})` }"
-      />
-
-      <!-- Secondary ambient glow -->
-      <div
-          class="absolute -bottom-1/3 -right-1/4 w-[900px] h-[900px] rounded-full opacity-50 will-change-transform blur-[100px]"
-          style="background: radial-gradient(circle, rgba(210, 180, 160, 0.7) 0%, rgba(190, 160, 140, 0.4) 35%, transparent 70%);"
-          :style="{ transform: `translate3d(${-mouseX * 35}px, ${-mouseY * 35}px, 0) scale(${1 + Math.cos(time * 0.7) * 0.08})` }"
-      />
-
-      <!-- Tertiary accent glow -->
-      <div
-          class="absolute top-1/2 left-1/2 w-[700px] h-[700px] rounded-full opacity-30 will-change-transform blur-[80px]"
-          style="background: radial-gradient(circle, rgba(220, 200, 180, 0.6) 0%, transparent 60%);"
-          :style="{ transform: `translate3d(${Math.sin(time * 0.5) * 100}px, ${Math.cos(time * 0.3) * 100}px, 0)` }"
-      />
-
-      <!-- Soft gradient overlays -->
-      <div
-          class="absolute top-1/4 right-0 w-full h-[500px] opacity-40"
-          style="background: linear-gradient(90deg, transparent 0%, rgba(250, 240, 230, 0.95) 50%, transparent 100%);"
-          :style="{ transform: `translateX(${Math.sin(time * 0.4) * 30}px)` }"
-      />
-
-      <!-- Multiple light shafts -->
-      <div
-          class="absolute left-1/5 top-0 w-[2px] h-full opacity-15 blur-sm"
-          style="background: linear-gradient(180deg, transparent 0%, rgba(255, 220, 180, 0.9) 20%, rgba(255, 220, 180, 0.9) 80%, transparent 100%);"
-          :style="{ transform: `translateX(${mouseX * 120}px)` }"
-      />
-      <div
-          class="absolute right-1/3 top-0 w-[2px] h-full opacity-15 blur-sm"
-          style="background: linear-gradient(180deg, transparent 0%, rgba(210, 190, 170, 0.9) 25%, rgba(210, 190, 170, 0.9) 75%, transparent 100%);"
-          :style="{ transform: `translateX(${-mouseX * 80}px)` }"
-      />
+    <!-- ═══ CANVAS BACKGROUND ═══ -->
+    <div class="gz-canvas" />
+    <div v-if="!isReducedMotion && !isLightAmbient" class="gz-orbs">
+      <div class="gz-orb gz-orb--a" :style="{ transform: `translate(${mouseX * 55}px, ${mouseY * 38}px)` }" />
+      <div class="gz-orb gz-orb--b" :style="{ transform: `translate(${-mouseX * 42}px, ${-mouseY * 28}px)` }" />
+      <div class="gz-orb gz-orb--c" :style="{ transform: `translate(${Math.sin(time) * 44}px, ${Math.cos(time * 0.7) * 32}px)` }" />
     </div>
 
-    <!-- Enhanced Floating Musical Notes -->
-    <div v-if="!isReducedMotion && !isSmallScreen && !isLightAmbient" class="fixed inset-0 pointer-events-none overflow-hidden">
-      <div
-          v-for="i in floatingNotesCount"
-          :key="i"
-          class="absolute will-change-transform font-serif"
-          :class="i % 4 === 0 ? 'text-3xl' : i % 4 === 1 ? 'text-2xl' : i % 4 === 2 ? 'text-xl' : 'text-lg'"
-          :style="{
-          left: `${(i * 7) % 100}%`,
-          top: `${(i * 9 + 15) % 100}%`,
-          color: i % 3 === 0 ? 'rgba(196, 149, 106, 0.08)' : i % 3 === 1 ? 'rgba(123, 158, 135, 0.08)' : 'rgba(139, 123, 168, 0.08)',
-          animation: `float-musical-${i % 3} ${8 + i % 6}s ease-in-out infinite`,
-          animationDelay: `${i * 0.15}s`,
-          textShadow: i % 5 === 0 ? '0 0 30px rgba(255, 220, 180, 0.4)' : 'none',
-          filter: i % 6 === 0 ? 'blur(0.5px)' : 'none'
-        }"
-      >
-        {{ musicalNotes[i % musicalNotes.length] }}
-      </div>
+    <!-- Floating musical glyphs -->
+    <div v-if="!isReducedMotion && !isSmallScreen && !isLightAmbient" class="gz-glyphs" aria-hidden="true">
+      <span v-for="i in 20" :key="i" class="gz-glyph"
+            :style="{
+          left: `${(i * 14 + 3) % 100}%`,
+          top: `${(i * 19 + 6) % 100}%`,
+          fontSize: `${13 + (i % 3) * 8}px`,
+          animationDuration: `${10 + i % 8}s`,
+          animationDelay: `${i * 0.5}s`
+        }">{{ ['𝅝','♩','♪','♫','♬','𝄞','♮','◈'][i % 8] }}</span>
     </div>
 
-    <!-- Subtle grain texture -->
-    <div class="fixed inset-0 pointer-events-none opacity-[0.025] mix-blend-overlay"
-         style="background-image: url('data:image/svg+xml,%3Csvg viewBox=&quot;0 0 200 200&quot; xmlns=&quot;http://www.w3.org/2000/svg&quot;%3E%3Cfilter id=&quot;noise&quot;%3E%3CfeTurbulence type=&quot;fractalNoise&quot; baseFrequency=&quot;1.2&quot; numOctaves=&quot;3&quot; /%3E%3C/filter%3E%3Crect width=&quot;100%&quot; height=&quot;100%&quot; filter=&quot;url(%23noise)&quot; /%3E%3C/svg%3E');" />
+    <!-- ═══ HEADER ═══ -->
+    <header class="gz-header" :class="{ 'gz-header--solid': headerScrolled }">
+      <div class="gz-header__inner">
 
-    <!-- Header with enhanced glassmorphism -->
-    <header
-        class="fixed top-0 left-0 right-0 z-50 backdrop-blur-2xl transition-all duration-700 border-b"
-        :style="{
-        backgroundColor: `rgba(250, 246, 242, ${0.65 + headerOpacity * 0.25})`,
-        borderColor: `rgba(200, 180, 160, ${0.15 + headerOpacity * 0.25})`,
-        boxShadow: headerOpacity > 0.5 ? '0 8px 40px rgba(0,0,0,0.06), 0 2px 8px rgba(200,180,160,0.1)' : 'none'
-      }"
-    >
-      <div class="max-w-7xl mx-auto px-8 lg:px-16 h-20 flex items-center justify-between">
-        <div class="flex items-center gap-4 cursor-pointer group" @click="router.push('/')">
-          <div class="relative w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100 flex items-center justify-center text-amber-700 text-xl shadow-xl group-hover:shadow-2xl transition-all duration-500 group-hover:scale-110 group-hover:rotate-12 overflow-hidden">
-            <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-amber-200/50 to-orange-200/50 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/40 to-transparent" />
-            <span class="relative z-10 font-serif">𝄞</span>
+        <!-- Wordmark -->
+        <button class="gz-wordmark" @click="router.push('/')">
+          <div class="gz-wordmark__badge">
+            <span class="gz-wordmark__clef">𝄞</span>
           </div>
-          <div>
-            <span class="text-xl font-semibold text-stone-700 group-hover:text-amber-700 transition-colors duration-300 tracking-tight">Gmazz</span>
-            <span class="text-[11px] text-stone-400 block -mt-0.5 tracking-[0.25em] uppercase font-medium">личный архив</span>
+          <div class="gz-wordmark__text">
+            <span class="gz-wordmark__name">Gmazz</span>
+            <span class="gz-wordmark__sub">Личный архив</span>
           </div>
-        </div>
+        </button>
 
-        <nav class="flex items-center gap-3">
-          <button
-              @click="toggleLightAmbient"
-              class="relative text-sm text-stone-500 hover:text-amber-700 transition-all duration-300 flex items-center gap-2.5 px-4 py-2.5 rounded-xl hover:bg-white/70 overflow-hidden group backdrop-blur-sm"
-              :aria-pressed="isLightAmbient"
-              title="Лёгкий фон"
-          >
-            <div class="absolute inset-0 bg-gradient-to-r from-amber-200/0 via-amber-200/60 to-amber-200/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
-            <span class="text-amber-600 relative text-base">{{ isLightAmbient ? '☀︎' : '☾' }}</span>
-            <span class="relative font-medium">{{ isLightAmbient ? 'полный фон' : 'лёгкий фон' }}</span>
+        <!-- Nav right -->
+        <nav class="gz-nav">
+          <button class="gz-nav__pill" @click="toggleLightAmbient" :aria-pressed="isLightAmbient">
+            <span>{{ isLightAmbient ? '☀︎' : '☾' }}</span>
+            <span>{{ isLightAmbient ? 'полный фон' : 'лёгкий фон' }}</span>
           </button>
-          <button
-              @click="openRandomNote"
-              class="relative text-sm text-stone-500 hover:text-amber-700 transition-all duration-300 flex items-center gap-2.5 px-5 py-2.5 rounded-xl hover:bg-white/70 overflow-hidden group backdrop-blur-sm"
-          >
-            <div class="absolute inset-0 bg-gradient-to-r from-amber-200/0 via-amber-200/60 to-amber-200/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
-            <span class="text-amber-600 animate-sparkle relative text-base">✦</span>
-            <span class="relative font-medium">случайная</span>
+          <button class="gz-nav__pill" @click="openRandomNote">
+            <span class="gz-nav__pill-icon">✦</span>
+            <span>случайная</span>
           </button>
-          <button
-              @click="openCreate"
-              class="relative text-sm text-stone-700 bg-gradient-to-br from-white/95 to-stone-50/95 hover:from-white hover:to-stone-50 px-7 py-2.5 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 active:scale-95 overflow-hidden group backdrop-blur-sm border border-stone-200/50"
-          >
-            <div class="absolute inset-0 bg-gradient-to-r from-amber-50/0 via-amber-50/80 to-amber-50/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
-            <span class="relative font-semibold tracking-tight">+ новая запись</span>
+          <button class="gz-btn-primary" @click="openCreate">
+            <span class="gz-btn-primary__plus">+</span>
+            новая запись
           </button>
         </nav>
+
       </div>
     </header>
 
-    <!-- Hidden file input for photo upload -->
-    <input
-        ref="photoInputRef"
-        type="file"
-        accept="image/*"
-        class="hidden"
-        @change="handlePhotoChange"
-    />
+    <input ref="photoInputRef" type="file" accept="image/*" class="gz-hidden" @change="handlePhotoChange" />
 
-    <!-- Enhanced Hero Section -->
-    <section class="relative pt-40 pb-28 px-8 lg:px-16" :style="{ transform: `translateY(${-parallaxOffset * 0.3}px)` }">
-      <div class="max-w-7xl mx-auto">
-        <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-12 lg:gap-16">
-          <!-- Mobile Photo (shown only on small screens) -->
-          <div class="lg:hidden flex justify-center mb-8">
-            <div
-                class="relative group/photo-mobile"
-                @click="canEditSettings ? triggerPhotoUpload() : null"
-            >
-              <!-- Decorative frame -->
-              <div class="absolute -inset-3 bg-gradient-to-br from-amber-200/40 to-amber-50/40 rounded-[2rem] blur-xl opacity-80" />
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- HERO -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <section class="gz-hero" :style="{ transform: `translateY(${-parallaxOffset * 0.2}px)` }">
 
-              <!-- Photo frame -->
-              <div
-                  class="relative w-48 h-56 rounded-[1.5rem] overflow-hidden shadow-xl"
-                  :class="profilePhotoUrl ? '' : 'bg-gradient-to-br from-stone-100 via-amber-50 to-stone-100'"
-              >
-                <template v-if="profilePhotoUrl">
-                  <img :src="profilePhotoUrl" alt="Сергей Гмыря" class="w-full h-full object-cover" />
-                  <div class="absolute inset-0 bg-gradient-to-t from-stone-900/20 via-transparent to-transparent pointer-events-none" />
-                </template>
-                <template v-else>
-                  <div class="absolute inset-0 flex flex-col items-center justify-center text-stone-400">
-                    <div class="text-6xl mb-2 opacity-30 font-serif">𝄞</div>
-                    <span class="text-[11px] uppercase tracking-widest opacity-50">Фото</span>
-                  </div>
-                </template>
+      <!-- Five-line stave -->
+      <div class="gz-stave" aria-hidden="true">
+        <div v-for="i in 5" :key="i" class="gz-stave__line" :style="{ top: `${15 + i * 14}%` }" />
+      </div>
 
-                <!-- Frame border -->
-                <div class="absolute inset-0 rounded-[1.5rem] border-2 border-amber-200/50 pointer-events-none" />
+      <div class="gz-hero__inner">
 
-                <!-- Edit indicator for Tauri -->
-                <div
-                    v-if="canEditSettings"
-                    class="absolute inset-0 bg-stone-900/0 active:bg-stone-900/40 transition-all duration-300 flex items-center justify-center"
-                >
-                  <div class="opacity-0 active:opacity-100 transition-opacity">
-                    <div class="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                      <span v-if="isUploadingPhoto" class="animate-spin">⟳</span>
-                      <span v-else>📷</span>
-                    </div>
-                  </div>
+        <!-- LEFT: Text column -->
+        <div class="gz-hero__text">
+
+          <!-- Eyebrow -->
+          <div class="gz-eyebrow">
+            <span class="gz-eyebrow__ornament">❧</span>
+            <span class="gz-eyebrow__rule" />
+            <span class="gz-eyebrow__label">Архив маэстро</span>
+          </div>
+
+          <!-- Name -->
+          <h1 class="gz-hero__name">
+            <span class="gz-hero__name-row">
+              <input v-if="canEditSettings" v-model="profileData.firstName"
+                     @change="saveProfileField('profile_firstname', profileData.firstName)"
+                     class="gz-name-input" :style="{ width: profileData.firstName.length + 'ch' }" aria-label="Имя" />
+              <span v-else class="gz-hero__firstname">{{ profileData.firstName }}</span>
+              <input v-if="canEditSettings" v-model="profileData.lastName"
+                     @change="saveProfileField('profile_lastname', profileData.lastName)"
+                     class="gz-name-input gz-name-input--gold" :style="{ width: '6ch' }" aria-label="Фамилия" />
+              <span v-else class="gz-hero__lastname">{{ profileData.lastName }}</span>
+            </span>
+            <input v-if="canEditSettings" v-model="profileData.role"
+                   @change="saveProfileField('profile_role', profileData.role)"
+                   class="gz-name-input gz-name-input--role" aria-label="Роль" />
+            <span v-else class="gz-hero__role">{{ profileData.role }}</span>
+          </h1>
+
+          <!-- Credential badges -->
+          <div class="gz-badges">
+            <div class="gz-badge gz-badge--violet">
+              <div class="gz-badge__shimmer" />
+              <div class="gz-badge__body">
+                <div class="gz-badge__icon">
+                  <span>𝄞</span>
+                </div>
+                <div class="gz-badge__copy">
+                  <div class="gz-badge__title">Композитор и аранжировщик</div>
+                  <div class="gz-badge__subtitle">Мультиинструменталист</div>
+                </div>
+              </div>
+            </div>
+            <div class="gz-badge gz-badge--amber">
+              <div class="gz-badge__shimmer" />
+              <div class="gz-badge__body">
+                <div class="gz-badge__icon">
+                  <span>🎹</span>
+                </div>
+                <div class="gz-badge__copy">
+                  <div class="gz-badge__title">Профессиональный преподаватель</div>
+                  <div class="gz-badge__subtitle">Игра на фортепиано</div>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Left: Text Content -->
-          <div class="max-w-3xl flex-1">
-            <div class="flex items-center gap-5 mb-10 overflow-hidden">
-              <div class="text-5xl text-amber-400 animate-pulse-slow drop-shadow-lg">❧</div>
-              <div class="h-[2px] flex-1 relative overflow-hidden rounded-full">
-                <div class="absolute inset-0 bg-gradient-to-r from-amber-300 via-amber-200 to-transparent" />
-                <div class="absolute inset-0 bg-gradient-to-r from-amber-400 via-amber-300 to-transparent translate-x-[-100%] animate-shimmer" />
-              </div>
+          <!-- Description -->
+          <div class="gz-hero__desc-wrap">
+            <div class="gz-hero__desc-bar" />
+            <textarea v-if="canEditSettings" v-model="profileData.description"
+                      @change="saveProfileField('profile_description', profileData.description)"
+                      rows="2" class="gz-hero__desc-edit" />
+            <p v-else class="gz-hero__desc">{{ profileData.description }}</p>
+          </div>
+
+          <!-- Stats row -->
+          <div class="gz-stats">
+            <div class="gz-stat">
+              <span class="gz-stat__num">{{ store.notes.length || '—' }}</span>
+              <span class="gz-stat__lbl">записей</span>
             </div>
+            <div class="gz-stat__div" />
+            <button class="gz-stat gz-stat--cta" @click="openCreate">
+              <span class="gz-stat__num gz-stat__num--gold">+</span>
+              <span class="gz-stat__lbl">создать</span>
+            </button>
+          </div>
 
-            <h1 class="text-7xl lg:text-8xl font-light text-stone-800 leading-[0.95] mb-10 tracking-tight flex flex-col items-start gap-2">
-              <div class="flex items-baseline gap-4 flex-wrap">
-                <input
-                  v-if="canEditSettings"
-                  v-model="profileData.firstName"
-                  @change="saveProfileField('profile_firstname', profileData.firstName)"
-                  class="bg-transparent border-b border-transparent hover:border-amber-300 focus:border-amber-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/60 transition-all min-w-[1ch] w-auto max-w-full"
-                  :style="{ width: profileData.firstName.length + 'ch' }"
-                  aria-label="Имя"
-                />
-                <span v-else class="inline-block hover:text-amber-700 transition-colors duration-700 drop-shadow-sm">{{ profileData.firstName }}</span>
-
-                <input
-                  v-if="canEditSettings"
-                  v-model="profileData.lastName"
-                  @change="saveProfileField('profile_lastname', profileData.lastName)"
-                  class="bg-transparent border-b border-transparent hover:border-amber-300 focus:border-amber-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/60 transition-all min-w-[1ch] w-auto max-w-full"
-                  :style="{ width: profileData.lastName.length + 'ch' }"
-                  aria-label="Фамилия"
-                />
-                <span v-else class="inline-block hover:text-amber-700 transition-colors duration-700 drop-shadow-sm">{{ profileData.lastName }}</span>
-              </div>
-              
-              <input
-                v-if="canEditSettings"
-                v-model="profileData.role"
-                @change="saveProfileField('profile_role', profileData.role)"
-                class="text-stone-400 mt-4 text-6xl lg:text-7xl bg-transparent border-b border-transparent hover:border-stone-300 focus:border-stone-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-stone-300/60 transition-all w-full"
-                aria-label="Роль"
-              />
-              <span v-else class="block text-stone-400 mt-4 text-6xl lg:text-7xl hover:text-stone-500 transition-colors duration-700">{{ profileData.role }}</span>
-            </h1>
-
-            <div class="text-2xl lg:text-[26px] text-stone-500 leading-relaxed max-w-2xl">
-              <textarea
-                v-if="canEditSettings"
-                v-model="profileData.description"
-                @change="saveProfileField('profile_description', profileData.description)"
-                rows="3"
-                class="w-full bg-transparent border-l-2 border-transparent hover:border-amber-300 focus:border-amber-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/60 transition-all resize-none"
-                aria-label="Описание"
-              ></textarea>
-              <p v-else>
-                {{ profileData.description }}
-              </p>
-            </div>
-
-            <!-- Enhanced Stats -->
-            <div class="flex items-center gap-16 mt-16">
-              <div class="group text-center relative cursor-default">
-                <div class="absolute inset-0 bg-gradient-to-br from-amber-300/25 to-transparent rounded-3xl blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-                <span class="block text-6xl font-light text-stone-700 group-hover:text-amber-700 transition-all duration-700 group-hover:scale-110 relative drop-shadow-sm">
-                  {{ store.notes.length || '—' }}
-                </span>
-                <span class="text-[11px] text-stone-400 uppercase tracking-[0.25em] mt-3 block font-semibold">записей</span>
-              </div>
-              <div class="w-[2px] h-14 bg-gradient-to-b from-transparent via-stone-300 to-transparent rounded-full" />
-              <div class="group text-center relative cursor-default">
-                <div class="absolute inset-0 bg-gradient-to-br from-amber-300/25 to-transparent rounded-3xl blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-                <span class="block text-6xl font-light text-stone-700 group-hover:text-amber-700 transition-all duration-700 group-hover:scale-110 relative drop-shadow-sm">5</span>
-                <span class="text-[11px] text-stone-400 uppercase tracking-[0.25em] mt-3 block font-semibold">типов</span>
-              </div>
-              <div class="w-[2px] h-14 bg-gradient-to-b from-transparent via-stone-300 to-transparent rounded-full" />
-              <div class="group text-center relative cursor-default">
-                <div class="absolute inset-0 bg-gradient-to-br from-amber-300/25 to-transparent rounded-3xl blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-                <span class="block text-6xl font-light text-stone-700 group-hover:text-amber-700 transition-all duration-700 group-hover:scale-110 relative drop-shadow-sm">В наше время</span>
-                <span class="text-[11px] text-stone-400 uppercase tracking-[0.25em] mt-3 block font-semibold">начало</span>
-              </div>
+          <!-- Type pills -->
+          <div class="gz-type-pills">
+            <div v-for="(cfg, type) in typeConfig" :key="type" class="gz-type-pill"
+                 :style="{ '--pill-bg': cfg.tag, '--pill-color': cfg.dark, '--pill-border': cfg.accent }">
+              <span class="gz-type-pill__icon">{{ cfg.icon }}</span>
+              <span class="gz-type-pill__name">{{ cfg.name }}</span>
+              <span class="gz-type-pill__count">{{ noteTypeStats[type] || 0 }}</span>
             </div>
           </div>
 
-          <!-- Right: Profile Photo (desktop) -->
-          <div class="relative flex-shrink-0 hidden lg:block">
-            <!-- Photo Container -->
-            <div
-                class="relative group/photo"
-                @mouseenter="isPhotoHovered = true"
-                @mouseleave="isPhotoHovered = false"
-            >
-              <!-- Decorative frame layers -->
-              <div class="absolute -inset-4 bg-gradient-to-br from-amber-200/40 via-orange-100/30 to-amber-50/40 rounded-[2.5rem] blur-2xl opacity-80 group-hover/photo:opacity-100 transition-opacity duration-700" />
-              <div class="absolute -inset-2 bg-gradient-to-br from-amber-100/60 to-stone-100/60 rounded-[2rem] opacity-60" />
+        </div>
 
-              <!-- Main photo frame -->
-              <div
-                  class="relative w-72 h-80 lg:w-80 lg:h-[22rem] rounded-[1.75rem] overflow-hidden shadow-2xl transition-all duration-700 group-hover/photo:shadow-3xl"
-                  :class="profilePhotoUrl ? '' : 'bg-gradient-to-br from-stone-100 via-amber-50 to-stone-100'"
-              >
-                <!-- Photo or placeholder -->
-                <template v-if="profilePhotoUrl">
-                  <img
-                      :src="profilePhotoUrl"
-                      alt="Сергей Гмыря"
-                      class="w-full h-full object-cover transition-transform duration-1000 group-hover/photo:scale-105"
-                  />
-                  <!-- Subtle vignette overlay -->
-                  <div class="absolute inset-0 bg-gradient-to-t from-stone-900/20 via-transparent to-stone-900/5 pointer-events-none" />
-                </template>
+        <!-- RIGHT: Photo -->
+        <div class="gz-hero__photo-col">
+          <div class="gz-photo" @mouseenter="isPhotoHovered = true" @mouseleave="isPhotoHovered = false">
 
-                <!-- Placeholder when no photo -->
-                <template v-else>
-                  <div class="absolute inset-0 flex flex-col items-center justify-center text-stone-400">
-                    <div class="text-8xl mb-4 opacity-30 font-serif">𝄞</div>
-                    <span class="text-sm uppercase tracking-widest opacity-50">Фото</span>
-                  </div>
-                </template>
+            <!-- Ambient halo -->
+            <div class="gz-photo__halo" :class="{ 'gz-photo__halo--bright': isPhotoHovered }" />
 
-                <!-- Golden frame border -->
-                <div class="absolute inset-0 rounded-[1.75rem] border-2 border-amber-200/50 pointer-events-none" />
+            <!-- Decorative ring -->
+            <div class="gz-photo__ring" />
 
-                <!-- Decorative corner ornaments -->
-                <div class="absolute top-3 left-3 w-8 h-8 border-t-2 border-l-2 border-amber-300/60 rounded-tl-xl pointer-events-none" />
-                <div class="absolute top-3 right-3 w-8 h-8 border-t-2 border-r-2 border-amber-300/60 rounded-tr-xl pointer-events-none" />
-                <div class="absolute bottom-3 left-3 w-8 h-8 border-b-2 border-l-2 border-amber-300/60 rounded-bl-xl pointer-events-none" />
-                <div class="absolute bottom-3 right-3 w-8 h-8 border-b-2 border-r-2 border-amber-300/60 rounded-br-xl pointer-events-none" />
+            <!-- Frame -->
+            <div class="gz-photo__frame" @click="canEditSettings ? triggerPhotoUpload() : null">
+              <template v-if="profilePhotoUrl">
+                <img :src="profilePhotoUrl" alt="Профиль" class="gz-photo__img" :class="{ 'gz-photo__img--hover': isPhotoHovered }" />
+                <div class="gz-photo__vignette" />
+              </template>
+              <template v-else>
+                <div class="gz-photo__placeholder">
+                  <span class="gz-photo__placeholder-clef">𝄞</span>
+                  <span class="gz-photo__placeholder-label">Фото</span>
+                </div>
+              </template>
 
-                <!-- Light reflection effect -->
-                <div
-                    class="absolute inset-0 opacity-0 group-hover/photo:opacity-100 transition-opacity duration-700 pointer-events-none"
-                    :style="{
-                      background: `linear-gradient(${135 + mouseX * 30}deg, rgba(255,255,255,0.15) 0%, transparent 50%)`
-                    }"
-                />
+              <!-- Corner brackets -->
+              <div class="gz-photo__corner gz-photo__corner--tl" />
+              <div class="gz-photo__corner gz-photo__corner--tr" />
+              <div class="gz-photo__corner gz-photo__corner--bl" />
+              <div class="gz-photo__corner gz-photo__corner--br" />
 
-                <!-- Edit overlay (only in Tauri mode) -->
-                <div
-                    v-if="canEditSettings"
-                    class="absolute inset-0 bg-stone-900/0 group-hover/photo:bg-stone-900/40 transition-all duration-500 flex items-center justify-center cursor-pointer"
-                    @click="triggerPhotoUpload"
-                >
-                  <div
-                      class="opacity-0 group-hover/photo:opacity-100 transition-all duration-500 transform translate-y-4 group-hover/photo:translate-y-0"
-                  >
-                    <div class="flex flex-col items-center gap-3 text-white">
-                      <div class="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/30 shadow-lg">
-                        <span v-if="isUploadingPhoto" class="text-xl animate-spin">⟳</span>
-                        <span v-else class="text-2xl">📷</span>
-                      </div>
-                      <span class="text-sm font-medium tracking-wide uppercase">
-                        {{ isUploadingPhoto ? 'Загрузка...' : (profilePhotoUrl ? 'Изменить' : 'Добавить фото') }}
-                      </span>
-                    </div>
-                  </div>
+              <!-- Upload overlay -->
+              <div v-if="canEditSettings" class="gz-photo__overlay" :class="{ 'gz-photo__overlay--show': isPhotoHovered }">
+                <div class="gz-photo__upload-btn">
+                  <span v-if="isUploadingPhoto" class="gz-spin">⟳</span>
+                  <span v-else>📷</span>
+                  <span>{{ isUploadingPhoto ? 'Загрузка...' : (profilePhotoUrl ? 'Изменить' : 'Добавить') }}</span>
                 </div>
               </div>
-
-              <!-- Decorative musical notes around frame -->
-              <div class="absolute -top-6 -right-2 text-3xl text-amber-300/40 animate-float font-serif" style="animation-delay: 0.2s;">♪</div>
-              <div class="absolute -bottom-4 -left-4 text-4xl text-amber-300/30 animate-float font-serif" style="animation-delay: 0.8s;">♫</div>
-              <div class="absolute top-1/2 -right-8 text-2xl text-amber-200/40 animate-float font-serif" style="animation-delay: 1.4s;">𝅘𝅥𝅮</div>
             </div>
+
+            <!-- Floating notes -->
+            <span class="gz-photo__float gz-photo__float--a">♪</span>
+            <span class="gz-photo__float gz-photo__float--b">♫</span>
+            <span class="gz-photo__float gz-photo__float--c">𝅘𝅥𝅮</span>
           </div>
         </div>
+
       </div>
     </section>
 
-    <!-- Maestro Showcase -->
-    <section class="relative px-8 lg:px-16 pb-28">
-      <div class="max-w-7xl mx-auto">
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-stretch">
-          <div class="lg:col-span-5">
-            <div class="rounded-[28px] bg-white/90 border border-stone-200/80 shadow-2xl overflow-hidden">
-              <div class="p-8 lg:p-10 relative">
-                <div class="absolute inset-0 bg-gradient-to-br from-amber-100/20 via-transparent to-transparent pointer-events-none" />
-                <div class="relative z-10">
-                  <div class="flex items-center justify-between mb-6">
-                  <div class="flex items-center gap-3">
-                    <span class="text-2xl text-amber-500 font-serif">𝄞</span>
-                      <template v-if="canEditSettings">
-                        <input
-                            v-model="maestroBlock.title"
-                            @change="saveMaestroField('maestro_title', maestroBlock.title)"
-                            class="bg-transparent text-[11px] uppercase tracking-[0.3em] text-stone-400 font-bold focus:outline-none"
-                            aria-label="Заголовок блока архива маэстро"
-                        />
-                      </template>
-                      <span v-else class="text-[11px] uppercase tracking-[0.3em] text-stone-400 font-bold">{{ maestroBlock.title }}</span>
-                  </div>
-                    <button
-                        v-if="canEditSettings"
-                        @click="isEditingFeatured = !isEditingFeatured"
-                        class="text-[11px] uppercase tracking-[0.25em] text-stone-400 hover:text-amber-600 transition-colors font-semibold"
-                    >
-                      {{ isEditingFeatured ? 'готово' : 'редактировать' }}
-                    </button>
-                  </div>
-                  <h2 class="text-3xl lg:text-4xl text-stone-800 font-light leading-snug">
-                    <template v-if="canEditSettings">
-                      <textarea
-                          v-model="maestroBlock.headline"
-                          @change="saveMaestroField('maestro_headline', maestroBlock.headline)"
-                          rows="2"
-                          class="w-full bg-transparent border-l-2 border-transparent hover:border-amber-300 focus:border-amber-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/60 transition-all resize-none"
-                          aria-label="Заголовок архива маэстро"
-                      ></textarea>
-                    </template>
-                    <template v-else>
-                      {{ maestroBlock.headline }}
-                    </template>
-                  </h2>
-                  <p class="text-lg text-stone-500 leading-relaxed mt-5">
-                    <template v-if="canEditSettings">
-                      <textarea
-                          v-model="maestroBlock.description"
-                          @change="saveMaestroField('maestro_description', maestroBlock.description)"
-                          rows="4"
-                          class="w-full bg-transparent border-l-2 border-transparent hover:border-amber-300 focus:border-amber-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/60 transition-all resize-none"
-                          aria-label="Описание архива маэстро"
-                      ></textarea>
-                    </template>
-                    <template v-else>
-                      {{ maestroBlock.description }}
-                    </template>
-                  </p>
-                  <div class="mt-8 flex flex-wrap items-center gap-4">
-                    <template v-if="canEditSettings">
-                      <input
-                          v-model="maestroBlock.cta"
-                          @change="saveMaestroField('maestro_cta', maestroBlock.cta)"
-                          class="bg-white/80 border border-stone-200/60 rounded-xl px-4 py-2 text-sm text-stone-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-200/60"
-                          aria-label="Текст кнопки архива маэстро"
-                      />
-                      <button
-                          @click="openCreate"
-                          class="relative text-sm text-stone-700 bg-white hover:bg-stone-50 px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-500 border border-stone-200/60"
-                      >
-                        {{ maestroBlock.cta }}
-                      </button>
-                    </template>
-                    <button
-                        v-else
-                        @click="openCreate"
-                        class="relative text-sm text-stone-700 bg-white hover:bg-stone-50 px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-500 border border-stone-200/60"
-                    >
-                      {{ maestroBlock.cta }}
-                    </button>
-                    <div class="text-[11px] uppercase tracking-[0.3em] text-stone-400 font-semibold">
-                      {{ profileData.startYear }} — {{ new Date().getFullYear() }}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="px-8 lg:px-10 pb-10">
-                <div class="grid grid-cols-3 gap-4">
-                  <div class="rounded-2xl bg-stone-50 border border-stone-200/70 p-4 text-center">
-                    <div class="text-2xl font-light text-stone-700">{{ store.notes.length || '—' }}</div>
-                    <div class="text-[11px] uppercase tracking-[0.25em] text-stone-400 font-semibold mt-2">записей</div>
-                  </div>
-                  <div class="rounded-2xl bg-stone-50 border border-stone-200/70 p-4 text-center">
-                    <div class="text-2xl font-light text-stone-700">5</div>
-                    <div class="text-[11px] uppercase tracking-[0.25em] text-stone-400 font-semibold mt-2">жанров</div>
-                  </div>
-                  <div class="rounded-2xl bg-stone-50 border border-stone-200/70 p-4 text-center">
-                    <div class="text-2xl font-light text-stone-700">∞</div>
-                    <div class="text-[11px] uppercase tracking-[0.25em] text-stone-400 font-semibold mt-2">мотивов</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- GENRES -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <section class="gz-section gz-section--genres">
+      <div class="gz-container">
 
-          <div class="lg:col-span-7">
-            <div class="rounded-[28px] bg-white/80 border border-stone-200/70 shadow-2xl p-8 lg:p-10 h-full">
-              <div class="flex items-center justify-between mb-6">
-                <h3 class="text-[11px] uppercase tracking-[0.3em] text-stone-400 font-bold">Избранные произведения</h3>
-                <span class="text-stone-400 text-[11px] uppercase tracking-[0.3em] font-semibold">архив</span>
+        <!-- Section header -->
+        <div class="gz-section-head">
+          <div class="gz-section-head__ornaments">
+            <div class="gz-section-head__rule gz-section-head__rule--left" />
+            <span class="gz-section-head__floret">❧</span>
+            <div class="gz-section-head__rule gz-section-head__rule--right" />
+          </div>
+          <h2 class="gz-section-head__title">Музыкальные жанры</h2>
+          <p class="gz-section-head__sub">Работал в таких жанрах как джаз, госпел, акапелла и классика</p>
+        </div>
+
+        <!-- Genre grid -->
+        <div class="gz-genres">
+          <div v-for="(genre, idx) in genres" :key="genre.name"
+               class="gz-genre"
+               :style="{
+                 '--g-color': genre.color,
+                 '--g-glow': genre.glow,
+                 animationDelay: `${idx * 0.12}s`
+               }">
+
+            <!-- Background -->
+            <div class="gz-genre__bg" :style="{ background: genre.gradient }" />
+
+            <!-- Floating symbols -->
+            <div class="gz-genre__symbols" aria-hidden="true">
+              <span v-for="k in 9" :key="k" class="gz-genre__sym"
+                    :style="{ left: `${(k * 24) % 100}%`, top: `${(k * 18) % 100}%`, animationDelay: `${k * 0.35}s` }">
+                {{ genre.pattern.split(' ')[k % 3] }}
+              </span>
+            </div>
+
+            <!-- Card body -->
+            <div class="gz-genre__body">
+              <div class="gz-genre__top">
+                <div class="gz-genre__icon-wrap">
+                  <div class="gz-genre__icon-glow" />
+                  <span class="gz-genre__icon">{{ genre.icon }}</span>
+                </div>
+                <span class="gz-genre__idx">{{ String(idx + 1).padStart(2, '0') }}</span>
               </div>
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-                <button
-                    v-for="note in featuredNotes"
-                    :key="note.id"
-                    @click="openNote(note)"
-                    class="group text-left rounded-2xl border border-stone-200/70 bg-white/90 hover:bg-white shadow-md hover:shadow-xl transition-all duration-500 p-5"
-                >
-                  <div class="flex items-center gap-3 mb-4">
-                    <span class="w-9 h-9 rounded-xl flex items-center justify-center text-base font-serif"
-                          :style="{ backgroundColor: typeConfig[note.note_type].accent + '25', color: typeConfig[note.note_type].accent }">
-                      {{ typeConfig[note.note_type].icon }}
-                    </span>
-                    <span class="text-[11px] uppercase tracking-[0.2em] font-semibold" :style="{ color: typeConfig[note.note_type].accent }">
-                      {{ typeConfig[note.note_type].name }}
-                    </span>
-                  </div>
-                  <div class="text-stone-700 text-base leading-relaxed line-clamp-3">
-                    {{ note.content || 'Без описания' }}
-                  </div>
-                  <div class="mt-4 text-[11px] uppercase tracking-[0.25em] text-stone-400 font-semibold">
-                    {{ formatDate(note.created_at) }}
-                  </div>
+
+              <div class="gz-genre__info">
+                <h3 class="gz-genre__name">{{ genre.name }}</h3>
+                <div class="gz-genre__sub">{{ genre.sub }}</div>
+                <p class="gz-genre__desc">{{ genre.desc }}</p>
+              </div>
+
+              <!-- Mini stave -->
+              <div class="gz-genre__stave">
+                <div v-for="l in 5" :key="l" class="gz-genre__stave-line" />
+              </div>
+
+              <div class="gz-genre__arrow">→</div>
+            </div>
+
+            <!-- Hover bloom -->
+            <div class="gz-genre__bloom" />
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- MAESTRO ARCHIVE -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <section class="gz-section">
+      <div class="gz-container">
+
+        <!-- Divider -->
+        <div class="gz-divider">
+          <span class="gz-divider__ornament">❧</span>
+          <div class="gz-divider__line" />
+          <span class="gz-divider__label">Архив</span>
+        </div>
+
+        <div class="gz-archive-grid">
+
+          <!-- ── INFO PANEL ── -->
+          <div class="gz-archive-info">
+            <div class="gz-archive-info__inner">
+
+              <div class="gz-archive-info__header">
+                <div class="gz-archive-info__label">
+                  <span class="gz-archive-info__clef">𝄞</span>
+                  <input v-if="canEditSettings" v-model="maestroBlock.title"
+                         @change="saveMaestroField('maestro_title', maestroBlock.title)"
+                         class="gz-inline-edit gz-inline-edit--label" />
+                  <span v-else class="gz-archive-info__title-text">{{ maestroBlock.title }}</span>
+                </div>
+                <button v-if="canEditSettings" class="gz-edit-btn" @click="isEditingFeatured = !isEditingFeatured">
+                  {{ isEditingFeatured ? '✓ готово' : '✎ ред.' }}
                 </button>
               </div>
 
-              <div v-if="canEditSettings && isEditingFeatured" class="mt-8 pt-6 border-t border-stone-200/70">
-                <div class="text-[11px] uppercase tracking-[0.25em] text-stone-400 font-semibold mb-4">Выбрать избранные</div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <label
-                      v-for="note in selectableNotes"
-                      :key="note.id"
-                      class="flex items-center gap-3 p-3 rounded-xl bg-white/90 border border-stone-200/70 hover:border-amber-300/60 transition-colors cursor-pointer"
-                  >
-                    <input
-                        type="checkbox"
-                        class="accent-amber-500"
-                        :checked="featuredNoteIds.includes(note.id)"
-                        @change="toggleFeatured(note.id)"
-                    />
-                    <span
-                        class="w-7 h-7 rounded-lg flex items-center justify-center text-sm font-serif"
-                        :style="{ backgroundColor: typeConfig[note.note_type].accent + '25', color: typeConfig[note.note_type].accent }"
-                    >
-                      {{ typeConfig[note.note_type].icon }}
-                    </span>
-                    <span class="text-sm text-stone-700 line-clamp-2">
-                      {{ note.content || 'Без описания' }}
-                    </span>
-                  </label>
+              <div v-if="canEditSettings" contenteditable="true" class="gz-archive-headline-edit"
+                   @blur="saveMaestroField('maestro_headline', ($event.target as HTMLElement).innerText)">{{ maestroBlock.headline }}</div>
+              <h2 v-else class="gz-archive-headline">{{ maestroBlock.headline }}</h2>
+
+              <div v-if="canEditSettings" contenteditable="true" class="gz-archive-desc-edit"
+                   @blur="saveMaestroField('maestro_description', ($event.target as HTMLElement).innerText)">{{ maestroBlock.description }}</div>
+              <p v-else class="gz-archive-desc">{{ maestroBlock.description }}</p>
+
+              <!-- CTA -->
+              <div class="gz-archive-cta-row">
+                <button class="gz-btn-primary" @click="openCreate">
+                  <input v-if="canEditSettings" v-model="maestroBlock.cta"
+                         @change="saveMaestroField('maestro_cta', maestroBlock.cta)"
+                         @click.stop class="gz-inline-edit gz-inline-edit--cta" />
+                  <span v-else>{{ maestroBlock.cta }}</span>
+                </button>
+                <span class="gz-archive-years">
+                  {{ profileData.startYear }} — {{ new Date().getFullYear() }}
+                </span>
+              </div>
+
+              <!-- Mini stats -->
+              <div class="gz-mini-stats">
+                <div class="gz-mini-stat">
+                  <span class="gz-mini-stat__val">{{ store.notes.length || '—' }}</span>
+                  <span class="gz-mini-stat__lbl">записей</span>
+                </div>
+                <div class="gz-mini-stat__sep" />
+                <div class="gz-mini-stat">
+                  <span class="gz-mini-stat__val">4</span>
+                  <span class="gz-mini-stat__lbl">жанра</span>
+                </div>
+                <div class="gz-mini-stat__sep" />
+                <div class="gz-mini-stat gz-mini-stat--gold">
+                  <span class="gz-mini-stat__val">∞</span>
+                  <span class="gz-mini-stat__lbl">мотивов</span>
                 </div>
               </div>
 
-              <div v-if="thoughtHighlights.length" class="mt-10 pt-8 border-t border-stone-200/70">
-                <div class="flex items-center gap-3 mb-6">
-                  <span class="text-2xl text-amber-500 font-serif">❧</span>
-                  <h3 class="text-[11px] uppercase tracking-[0.3em] text-stone-400 font-bold">Мысли мастера</h3>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-                  <div
-                      v-for="note in thoughtHighlights"
-                      :key="note.id"
-                      class="rounded-2xl bg-stone-50 border border-stone-200/70 p-5"
-                  >
-                    <p class="text-stone-600 italic leading-relaxed line-clamp-4">
-                      «{{ note.content }}»
-                    </p>
+            </div>
+          </div>
+
+          <!-- ── FEATURED + THOUGHTS ── -->
+          <div class="gz-archive-right">
+
+            <!-- Featured notes -->
+            <div class="gz-featured">
+              <div class="gz-featured__header">
+                <h3 class="gz-featured__title">Избранные произведения</h3>
+                <span class="gz-featured__all">архив →</span>
+              </div>
+
+              <div v-if="featuredNotes.length" class="gz-featured__grid">
+                <button v-for="note in featuredNotes" :key="note.id"
+                        class="gz-feat-note" @click="openNote(note)">
+                  <div class="gz-feat-note__type">
+                    <span class="gz-feat-note__icon"
+                          :style="{ background: typeConfig[note.note_type].tag, color: typeConfig[note.note_type].dark }">
+                      {{ typeConfig[note.note_type].icon }}
+                    </span>
+                    <span class="gz-feat-note__kind" :style="{ color: typeConfig[note.note_type].accent }">
+                      {{ typeConfig[note.note_type].name }}
+                    </span>
                   </div>
+                  <p class="gz-feat-note__text">{{ note.content || 'Без описания' }}</p>
+                  <span class="gz-feat-note__date">{{ formatDate(note.created_at) }}</span>
+                </button>
+              </div>
+
+              <div v-else class="gz-featured__empty">
+                <span class="gz-featured__empty-clef">𝄞</span>
+                <p>Избранных произведений пока нет</p>
+                <p v-if="canEditSettings" class="gz-featured__empty-hint">Нажмите «ред.» чтобы выбрать</p>
+              </div>
+
+              <!-- Edit panel -->
+              <div v-if="canEditSettings && isEditingFeatured" class="gz-select-panel">
+                <div class="gz-select-panel__title">Выбрать избранные</div>
+                <div class="gz-select-grid">
+                  <label v-for="note in selectableNotes" :key="note.id" class="gz-select-item">
+                    <input type="checkbox" class="gz-select-item__check"
+                           :checked="featuredNoteIds.includes(note.id)" @change="toggleFeatured(note.id)" />
+                    <span :style="{ color: typeConfig[note.note_type].accent }">{{ typeConfig[note.note_type].icon }}</span>
+                    <span class="gz-select-item__text">{{ note.content || 'Без описания' }}</span>
+                  </label>
                 </div>
               </div>
             </div>
+
+            <!-- Thought highlights -->
+            <div v-if="thoughtHighlights.length" class="gz-thoughts">
+              <div class="gz-thoughts__header">
+                <span class="gz-thoughts__ornament">❧</span>
+                <h3 class="gz-thoughts__title">Мысли мастера</h3>
+              </div>
+              <div class="gz-thoughts__grid">
+                <div v-for="note in thoughtHighlights" :key="note.id" class="gz-thought">
+                  <div class="gz-thought__quote-mark">"</div>
+                  <p class="gz-thought__text">{{ note.content }}</p>
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Notes Collection -->
-    <section class="relative px-8 lg:px-16 pb-32">
-      <div class="max-w-7xl mx-auto">
+    <!-- ═══════════════════════════════════════════════════ -->
+    <!-- NOTES COLLECTION -->
+    <!-- ═══════════════════════════════════════════════════ -->
+    <section class="gz-section gz-section--collection">
+      <div class="gz-container">
 
-        <div class="flex items-center justify-between mb-16">
-            <h2 class="text-[11px] uppercase tracking-[0.3em] text-stone-400 font-bold">Коллекция работ</h2>
-          <div class="h-[2px] flex-1 mx-10 relative overflow-hidden rounded-full">
-            <div class="absolute inset-0 bg-gradient-to-r from-stone-300 via-stone-200 to-transparent" />
-            <div class="absolute inset-0 bg-gradient-to-r from-amber-300 to-transparent translate-x-[-100%] animate-shimmer-slow" />
+        <div class="gz-collection-head">
+          <div>
+            <div class="gz-collection-head__eyebrow">Коллекция работ</div>
+            <div class="gz-collection-head__accent-bar" />
           </div>
+          <div class="gz-collection-head__rule" />
+          <span class="gz-collection-head__count">{{ store.filteredNotes.length }} записей</span>
         </div>
 
-        <!-- Ultra Enhanced Bento Grid -->
-        <div v-if="store.filteredNotes.length > 0" class="grid grid-cols-12 gap-7 lg:gap-8">
-          <article
+        <!-- Grid -->
+        <div v-if="store.filteredNotes.length > 0" class="gz-notes-grid">
+          <NoteCard
               v-for="(note, index) in store.filteredNotes"
               :key="note.id"
-              @click="openNote(note)"
-              class="group cursor-pointer perspective-1000"
-              :class="getCardSize(index).cols"
-          >
-            <div
-                class="relative h-full rounded-[28px] p-8 lg:p-10 transition-all duration-700 ease-out group-hover:shadow-2xl overflow-hidden preserve-3d will-change-transform"
-                :style="{
-                background: typeConfig[note.note_type].bg,
-                transform: 'translateZ(0)'
-              }"
-                :class="getCardSize(index).minHeight"
-            >
-              <!-- Enhanced layered glows -->
-              <div
-                  class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-all duration-1000 pointer-events-none blur-3xl"
-                  :style="{
-                  background: `radial-gradient(circle at ${mouseX * 100}% ${mouseY * 100}%, ${typeConfig[note.note_type].accent}40 0%, ${typeConfig[note.note_type].accent}15 35%, transparent 70%)`
-                }"
-              />
-
-              <div
-                  class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-all duration-700 pointer-events-none"
-                  :style="{
-                  background: typeConfig[note.note_type].gradient
-                }"
-              />
-
-              <!-- Animated border with musical pulse -->
-              <div class="absolute inset-0 rounded-[28px] opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none overflow-hidden">
-                <div
-                    class="absolute inset-0 border-2 rounded-[28px]"
-                    :style="{
-                    borderColor: typeConfig[note.note_type].accent + '40',
-                    animation: `pulse-border 2s ease-in-out infinite`
-                  }"
-                />
-              </div>
-
-              <!-- 3D floating icon with rotation -->
-              <div
-                  class="absolute top-7 right-7 text-6xl lg:text-7xl opacity-[0.06] group-hover:opacity-25 transition-all duration-1000 will-change-transform font-serif"
-                  :style="{
-                  color: typeConfig[note.note_type].accent,
-                  transform: `translateZ(40px) rotateY(${mouseX * 25 - 12.5}deg) rotateX(${mouseY * -25 + 12.5}deg) scale(${1 + Math.sin(time + index * 0.5) * 0.12})`
-                }"
-              >
-                {{ typeConfig[note.note_type].icon }}
-              </div>
-
-              <!-- Dynamic light reflection -->
-              <div
-                  class="absolute inset-0 opacity-0 group-hover:opacity-40 transition-opacity duration-1000 pointer-events-none"
-                  :style="{
-                  background: `linear-gradient(${mouseX * 180}deg, transparent 0%, ${typeConfig[note.note_type].accent}15 50%, transparent 100%)`
-                }"
-              />
-
-              <!-- Card Content -->
-              <div class="relative z-10 h-full flex flex-col">
-                <!-- Enhanced Header -->
-                <div class="flex items-center gap-3.5 mb-7">
-                  <span
-                      class="w-12 h-12 rounded-2xl flex items-center justify-center text-lg group-hover:scale-125 group-hover:rotate-12 transition-all duration-700 shadow-lg group-hover:shadow-2xl relative overflow-hidden font-serif"
-                      :style="{
-                      backgroundColor: typeConfig[note.note_type].accent + '35',
-                      color: typeConfig[note.note_type].accent
-                    }"
-                  >
-                    <span class="absolute inset-0 bg-gradient-to-br from-white/30 to-transparent" />
-                    <span class="relative drop-shadow-sm">{{ typeConfig[note.note_type].icon }}</span>
-                  </span>
-                  <span class="text-[11px] font-bold uppercase tracking-[0.18em] group-hover:tracking-[0.25em] transition-all duration-500" :style="{ color: typeConfig[note.note_type].accent }">
-                    {{ typeConfig[note.note_type].name }}
-                  </span>
-                  <span class="text-[11px] text-stone-400 ml-auto font-mono tabular-nums group-hover:text-stone-600 transition-colors">
-                    {{ formatDate(note.created_at) }}
-                  </span>
-                </div>
-
-                <div v-if="getCardChips(note).length" class="flex flex-wrap gap-2 mb-6">
-                  <span
-                      v-for="(chip, chipIndex) in getCardChips(note)"
-                      :key="note.id + '-' + chipIndex"
-                      class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] uppercase tracking-[0.18em] font-semibold bg-white/70 border border-white/70 shadow-sm"
-                      :style="{ color: typeConfig[note.note_type].accent, borderColor: typeConfig[note.note_type].accent + '35' }"
-                  >
-                    {{ chip }}
-                  </span>
-                </div>
-
-                <!-- Main Content with Enhanced Styling -->
-                <div class="flex-1">
-                  <!-- Thought -->
-                  <div v-if="note.note_type === 'thought'" class="h-full flex flex-col">
-                    <p class="text-2xl lg:text-[28px] text-stone-600 leading-relaxed font-light flex-1 group-hover:text-stone-800 transition-colors duration-700">
-                      «{{ truncate(note.content, getCardSize(index).truncateLength) }}»
-                    </p>
-                  </div>
-
-                  <!-- Harmony -->
-                  <div v-else-if="note.note_type === 'harmony'" class="h-full flex flex-col">
-                    <div class="flex-1 bg-white/80 rounded-2xl p-7 backdrop-blur-sm border border-white/60 group-hover:bg-white/95 group-hover:shadow-xl group-hover:border-white/80 transition-all duration-700">
-                      <pre class="font-mono text-sm text-stone-600 whitespace-pre-wrap leading-loose group-hover:text-stone-800 transition-colors">{{ truncate(note.content, getCardSize(index).truncateLength) }}</pre>
-                    </div>
-                    <div v-if="note.metadata?.chord_symbol" class="mt-6 flex items-center gap-3">
-                      <span class="text-[11px] text-stone-400 uppercase tracking-wider font-semibold">аккорд:</span>
-                      <span class="text-xl font-mono font-bold text-stone-700 px-4 py-1.5 bg-white/70 rounded-xl shadow-md">{{ note.metadata.chord_symbol }}</span>
-                    </div>
-                  </div>
-
-                  <!-- Phrase -->
-                  <div v-else-if="note.note_type === 'phrase'" class="h-full flex flex-col">
-                    <div class="flex items-center gap-6 mb-7">
-                      <div
-                          class="w-[70px] h-[70px] rounded-2xl flex items-center justify-center text-white shadow-xl group-hover:scale-125 group-hover:rotate-12 transition-all duration-700 cursor-pointer relative overflow-hidden"
-                          :style="{ backgroundColor: typeConfig[note.note_type].accent }"
-                      >
-                        <div class="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent" />
-                        <span class="text-2xl relative animate-pulse-slow drop-shadow-md">▶</span>
-                      </div>
-                      <!-- Enhanced waveform -->
-                      <div class="flex-1 flex items-center gap-[3px] h-14">
-                        <div
-                            v-for="j in 36"
-                            :key="j"
-                            class="flex-1 rounded-full transition-all duration-500 group-hover:opacity-100"
-                            :style="{
-                            height: `${25 + Math.sin(j * 0.35 + time) * 65}%`,
-                            backgroundColor: typeConfig[note.note_type].accent + '70',
-                            opacity: 0.6 + Math.sin(time * 2.5 + j * 0.25) * 0.3,
-                            transform: `scaleY(${1 + Math.sin(time * 3.5 + j * 0.15) * 0.35})`
-                          }"
-                        />
-                      </div>
-                    </div>
-                    <p class="text-stone-500 leading-relaxed flex-1 group-hover:text-stone-700 transition-colors duration-700 text-lg">{{ truncate(note.content, 130) }}</p>
-                  </div>
-
-                  <!-- Rhythm -->
-                  <div v-else-if="note.note_type === 'rhythm'" class="h-full flex flex-col">
-                    <div class="flex items-start gap-10">
-                      <div
-                          class="text-7xl font-light leading-none group-hover:scale-110 transition-transform duration-700"
-                          :style="{
-                          color: typeConfig[note.note_type].accent,
-                          textShadow: `0 0 25px ${typeConfig[note.note_type].accent}50`,
-                          filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.1))'
-                        }"
-                      >
-                        {{ note.metadata?.time_signature || '4/4' }}
-                      </div>
-                      <div class="flex-1">
-                        <p class="text-stone-500 leading-relaxed group-hover:text-stone-700 transition-colors duration-700 text-lg">{{ truncate(note.content, 150) }}</p>
-                        <div v-if="note.metadata?.mood" class="mt-6">
-                          <span class="text-[11px] px-5 py-2 rounded-full bg-white/90 text-stone-600 font-bold shadow-md border border-stone-200/50">
-                            {{ note.metadata.mood }}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Score -->
-                  <div v-else-if="note.note_type === 'score'" class="h-full flex flex-col">
-                    <div class="flex-1 bg-white/70 rounded-2xl p-7 border border-stone-200/80 backdrop-blur-sm group-hover:bg-white/90 group-hover:shadow-xl group-hover:border-stone-300/80 transition-all duration-700">
-                      <div class="relative h-28 mb-6">
-                        <div
-                            v-for="j in 5"
-                            :key="j"
-                            class="absolute left-0 right-0 h-[2px] bg-stone-300/80 transition-all duration-700 group-hover:bg-stone-400/90 rounded-full"
-                            :style="{
-                            top: `${j * 22}%`,
-                            transform: `translateY(${Math.sin(time + j * 0.8) * 2}px)`,
-                            boxShadow: `0 0 8px ${typeConfig[note.note_type].accent}20`
-                          }"
-                        />
-                        <div
-                            class="absolute left-10 top-1/2 -translate-y-1/2 text-5xl text-stone-400 group-hover:text-stone-600 transition-all duration-700 font-serif drop-shadow-md"
-                            :style="{
-                            transform: `translateY(-50%) scale(${1 + Math.sin(time) * 0.08})`,
-                            color: typeConfig[note.note_type].accent + '80'
-                          }"
-                        >
-                          𝄞
-                        </div>
-                      </div>
-                      <p class="text-stone-500 text-base leading-relaxed group-hover:text-stone-700 transition-colors duration-700">{{ truncate(note.content, 130) }}</p>
-                    </div>
-                    <div v-if="note.metadata?.key" class="mt-6 text-[11px] text-stone-400">
-                      Тональность: <span class="text-stone-700 font-bold text-sm">{{ note.metadata.key }}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Enhanced Footer -->
-                <div class="flex items-center justify-between mt-7 pt-7 border-t border-stone-200/80 group-hover:border-stone-300/90 transition-colors duration-700">
-                  <span class="text-[11px] text-stone-400 font-mono tracking-wider group-hover:text-stone-500 transition-colors duration-500 tabular-nums">#{{ note.id.substring(0, 8) }}</span>
-                  <span
-                      class="text-[11px] font-bold opacity-60 group-hover:opacity-100 transition-all duration-700 flex items-center gap-2.5 group-hover:translate-x-2"
-                      :style="{ color: typeConfig[note.note_type].accent }"
-                  >
-                    открыть <span class="text-base animate-pulse-slow">→</span>
-                  </span>
-                </div>
-              </div>
-            </div>
-          </article>
+              :note="note"
+              :index="index"
+              :current-playing-id="currentPlayingId"
+              @open="openNote"
+              @toggle-playback="togglePlayback"
+          />
         </div>
 
-        <!-- Enhanced Empty State -->
-        <div v-else-if="!store.loading" class="text-center py-48">
-          <div class="inline-block p-20 rounded-[2.5rem] bg-white/80 backdrop-blur-2xl shadow-2xl relative overflow-hidden">
-            <div class="absolute inset-0 bg-gradient-to-br from-amber-100/25 to-transparent" />
-            <div class="absolute top-0 right-0 w-40 h-40 bg-amber-200/25 rounded-full blur-3xl animate-pulse-slow" />
-            <div class="absolute bottom-0 left-0 w-40 h-40 bg-orange-200/25 rounded-full blur-3xl animate-pulse-slow" style="animation-delay: 1s;" />
-
-            <div class="relative">
-              <div class="text-9xl text-amber-300 mb-10 inline-block animate-float font-serif drop-shadow-lg" :style="{ transform: `scale(${1 + Math.sin(time) * 0.1})` }">𝄞</div>
-              <h3 class="text-4xl font-light text-stone-700 mb-5 tracking-tight">Архив пуст</h3>
-              <p class="text-stone-500 mb-12 max-w-md leading-relaxed text-xl mx-auto">
-                Создайте первую запись, чтобы начать формировать коллекцию музыкальных идей
-              </p>
-              <button
-                  @click="openCreate"
-                  class="relative text-base text-stone-700 bg-white hover:bg-stone-50 px-12 py-5 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500 active:scale-95 overflow-hidden group border border-stone-200/50"
-              >
-                <div class="absolute inset-0 bg-gradient-to-r from-amber-50/0 via-amber-50/90 to-amber-50/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1200" />
-                <span class="relative font-bold tracking-tight">+ создать запись</span>
-              </button>
-            </div>
+        <!-- Empty state -->
+        <div v-else-if="!store.loading" class="gz-empty">
+          <div class="gz-empty__card">
+            <span class="gz-empty__clef" :style="{ transform: `scale(${1 + Math.sin(time)*0.06})`, display:'inline-block' }">𝄞</span>
+            <h3 class="gz-empty__title">Архив пуст</h3>
+            <p class="gz-empty__body">Создайте первую запись, чтобы начать формировать коллекцию музыкальных идей</p>
+            <button class="gz-btn-primary gz-btn-primary--lg" @click="openCreate">+ создать запись</button>
           </div>
         </div>
 
         <!-- Loading -->
-        <div v-if="store.loading" class="text-center py-48">
-          <div class="inline-block">
-            <div class="relative w-20 h-20 mb-8">
-              <div class="absolute inset-0 border-[3px] border-amber-200 rounded-full animate-ping opacity-25" />
-              <div class="absolute inset-0 border-[3px] border-amber-300 border-t-amber-700 rounded-full animate-spin" />
-            </div>
-            <p class="text-sm text-stone-400 font-bold tracking-[0.25em] uppercase">загрузка...</p>
+        <div v-if="store.loading" class="gz-loading">
+          <div class="gz-loading__ring">
+            <div class="gz-loading__ping" />
+            <div class="gz-loading__spin" />
           </div>
+          <span class="gz-loading__label">загрузка...</span>
         </div>
 
-        <!-- Load More -->
-        <div v-if="store.hasMore && store.filteredNotes.length > 0" class="text-center mt-24">
-          <button
-              @click="store.loadMore()"
-              :disabled="store.loading"
-              class="relative text-sm text-stone-600 border-2 border-stone-300 px-14 py-5 rounded-2xl hover:bg-white/80 hover:border-stone-400 hover:shadow-2xl transition-all duration-500 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95 overflow-hidden group backdrop-blur-sm"
-          >
-            <div class="absolute inset-0 bg-gradient-to-r from-stone-50/0 via-stone-50/80 to-stone-50/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1200" />
-            <span class="relative font-semibold tracking-tight">показать ещё</span>
+        <!-- Load more -->
+        <div v-if="store.hasMore && store.filteredNotes.length > 0" class="gz-load-more">
+          <button class="gz-btn-outline" @click="store.loadMore()" :disabled="store.loading">
+            показать ещё
           </button>
         </div>
+
       </div>
     </section>
 
-    <!-- Enhanced Footer -->
-    <footer class="relative px-8 lg:px-16 py-24 border-t border-stone-200/80 bg-gradient-to-b from-transparent to-stone-50/70 overflow-hidden">
-      <div class="absolute inset-0 opacity-40">
-        <div class="absolute top-0 left-1/4 w-80 h-80 bg-amber-200/25 rounded-full blur-[100px]" />
-        <div class="absolute bottom-0 right-1/4 w-80 h-80 bg-orange-200/25 rounded-full blur-[100px]" />
-      </div>
-
-      <div class="max-w-7xl mx-auto relative">
-        <div class="flex flex-col md:flex-row items-center justify-between gap-10">
-          <div class="flex items-center gap-6 group cursor-pointer">
-            <span class="text-5xl text-amber-400 group-hover:scale-125 group-hover:rotate-12 transition-all duration-700 font-serif drop-shadow-lg" :style="{ transform: `scale(${1 + Math.sin(time * 0.5) * 0.08})` }">𝄞</span>
-            <div>
-              <span class="text-stone-700 font-bold text-2xl group-hover:text-amber-700 transition-colors duration-500 tracking-tight">Gmazz</span>
-              <div class="text-[11px] text-stone-400 block tracking-[0.25em] uppercase mt-1 font-semibold flex items-center gap-1">
-                <span>архив</span>
-                <input
-                  v-if="canEditSettings"
-                  v-model="profileData.startYear"
-                  @change="saveProfileField('archive_start_year', profileData.startYear)"
-                  class="bg-transparent w-12 border-b border-stone-200 focus:border-amber-500 outline-none focus-visible:ring-2 focus-visible:ring-amber-200/60 text-center"
-                  aria-label="Год начала архива"
-                />
-                <span v-else>{{ profileData.startYear }}</span>
-                <span>—{{ new Date().getFullYear() }}</span>
-              </div>
+    <!-- ═══ FOOTER ═══ -->
+    <footer class="gz-footer">
+      <div class="gz-footer__inner">
+        <div class="gz-footer__brand">
+          <span class="gz-footer__clef" :style="{ transform: `scale(${1 + Math.sin(time*0.4)*0.05})`, display:'inline-block' }">𝄞</span>
+          <div>
+            <div class="gz-footer__name">Gmazz</div>
+            <div class="gz-footer__years">
+              архив
+              <input v-if="canEditSettings" v-model="profileData.startYear"
+                     @change="saveProfileField('archive_start_year', profileData.startYear)"
+                     class="gz-inline-edit gz-inline-edit--footer-year" />
+              <span v-else>{{ profileData.startYear }}</span>
+              — {{ new Date().getFullYear() }}
             </div>
           </div>
-          <div class="text-lg text-stone-500 italic text-center md:text-right max-w-lg leading-relaxed relative">
-            <span class="absolute -top-6 -left-6 text-5xl text-amber-300/40 font-serif">"</span>
-            <textarea
-              v-if="canEditSettings"
-              v-model="profileData.quote"
-              @change="saveProfileField('profile_quote', profileData.quote)"
-              rows="2"
-              class="w-full bg-transparent border-none focus:ring-0 focus-visible:ring-2 focus-visible:ring-amber-200/60 text-right resize-none outline-none"
-              aria-label="Цитата"
-            ></textarea>
-            <span v-else>{{ profileData.quote }}</span>
-            <span class="absolute -bottom-6 -right-6 text-5xl text-amber-300/40 font-serif">"</span>
-          </div>
+        </div>
+        <div class="gz-footer__quote-wrap">
+          <div v-if="canEditSettings" contenteditable="true" class="gz-footer__quote gz-footer__quote--edit"
+               @blur="saveProfileField('profile_quote', ($event.target as HTMLElement).innerText)">{{ profileData.quote }}</div>
+          <p v-else class="gz-footer__quote">{{ profileData.quote }}</p>
         </div>
       </div>
     </footer>
+
   </div>
 </template>
 
 <style scoped>
-@keyframes float-musical-0 {
-  0%, 100% {
-    transform: translate3d(0, 0, 0) rotate(0deg);
-    opacity: 0.3;
-  }
-  25% {
-    transform: translate3d(20px, -30px, 0) rotate(90deg);
-    opacity: 0.7;
-  }
-  50% {
-    transform: translate3d(-10px, -20px, 0) rotate(180deg);
-    opacity: 0.4;
-  }
-  75% {
-    transform: translate3d(10px, -40px, 0) rotate(270deg);
-    opacity: 0.6;
-  }
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,600&family=Playfair+Display:ital,wght@0,700;0,800;0,900;1,400&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+/* ═══════════════════ CSS VARIABLES ═══════════════════ */
+:root, .gz-root {
+  --amber-50:  #FFFBF0;
+  --amber-100: #FEF3D0;
+  --amber-200: #FBDFA0;
+  --amber-300: #F5C460;
+  --amber-400: #EBA832;
+  --amber-500: #D4881A;
+  --amber-600: #B8690C;
+  --amber-700: #964E07;
+  --amber-800: #763804;
+  --amber-900: #5A2803;
+
+  --stone-50:  #FDFAF4;
+  --stone-100: #F7F1E6;
+  --stone-200: #EDE4D2;
+  --stone-300: #D6C8AE;
+  --stone-400: #B8A48A;
+  --stone-500: #9A8068;
+  --stone-600: #7C5E48;
+  --stone-700: #5E4030;
+  --stone-800: #3E2618;
+  --stone-900: #1E1008;
+
+  --ink:       #1A0E06;
+  --card-bg:   rgba(255, 255, 255, 0.82);
+  --card-border: rgba(210, 185, 145, 0.42);
+
+  --radius-sm:  12px;
+  --radius-md:  20px;
+  --radius-lg:  28px;
+  --radius-xl:  36px;
+
+  --shadow-sm:  0 2px 8px rgba(100, 60, 10, 0.06);
+  --shadow-md:  0 8px 32px rgba(100, 60, 10, 0.10);
+  --shadow-lg:  0 20px 60px rgba(100, 60, 10, 0.14);
+  --shadow-xl:  0 32px 80px rgba(100, 60, 10, 0.18);
 }
 
-@keyframes float-musical-1 {
-  0%, 100% {
-    transform: translate3d(0, 0, 0) rotate(0deg);
-    opacity: 0.4;
-  }
-  33% {
-    transform: translate3d(-15px, -25px, 0) rotate(120deg);
-    opacity: 0.8;
-  }
-  66% {
-    transform: translate3d(15px, -35px, 0) rotate(240deg);
-    opacity: 0.5;
-  }
+/* ═══════════════════ BASE ═══════════════════ */
+* { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+html { scroll-behavior: smooth; }
+
+.gz-root {
+  min-height: 100vh;
+  overflow-x: hidden;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  color: var(--ink);
 }
 
-@keyframes float-musical-2 {
-  0%, 100% {
-    transform: translate3d(0, 0, 0) scale(1);
-    opacity: 0.35;
-  }
-  50% {
-    transform: translate3d(12px, -45px, 0) scale(1.4);
-    opacity: 0.75;
-  }
+.gz-hidden { display: none; }
+
+/* ═══════════════════ CANVAS BACKGROUND ═══════════════════ */
+.gz-canvas {
+  position: fixed; inset: 0; z-index: -20;
+  background:
+      radial-gradient(ellipse 140% 90% at 10% 0%,   rgba(255, 222, 140, 0.36) 0%, transparent 55%),
+      radial-gradient(ellipse 100% 80% at 90% 100%,  rgba(228, 198, 155, 0.28) 0%, transparent 52%),
+      radial-gradient(ellipse 70%  60% at 50% 50%,   rgba(255, 244, 210, 0.18) 0%, transparent 60%),
+      linear-gradient(170deg, #FDFAF4 0%, #FAF3E2 30%, #F4EAD5 65%, #EDE0C8 100%);
 }
 
-@keyframes shimmer {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
+/* Subtle paper grain overlay */
+.gz-canvas::after {
+  content: '';
+  position: absolute; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.025'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+  opacity: 0.6;
+  pointer-events: none;
 }
 
-@keyframes shimmer-slow {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(200%);
-  }
+/* Ambient orbs */
+.gz-orbs { position: fixed; inset: 0; z-index: -15; pointer-events: none; overflow: hidden; }
+.gz-orb { position: absolute; border-radius: 50%; filter: blur(90px); transition: transform 0.15s ease-out; }
+.gz-orb--a { width: 900px; height: 900px; top: -20%; left: -12%; background: radial-gradient(circle, rgba(255, 205, 100, 0.28) 0%, rgba(240, 168, 72, 0.10) 45%, transparent 72%); }
+.gz-orb--b { width: 680px; height: 680px; bottom: -18%; right: -10%; background: radial-gradient(circle, rgba(210, 172, 120, 0.22) 0%, rgba(188, 148, 100, 0.08) 45%, transparent 72%); }
+.gz-orb--c { width: 520px; height: 520px; top: 40%; left: 42%; background: radial-gradient(circle, rgba(252, 230, 180, 0.20) 0%, transparent 65%); }
+
+/* Floating glyphs */
+.gz-glyphs { position: fixed; inset: 0; z-index: -10; pointer-events: none; overflow: hidden; }
+.gz-glyph {
+  position: absolute; font-family: 'Cormorant Garamond', serif; user-select: none;
+  color: rgba(168, 110, 38, 0.055);
+  animation: gz-drift linear infinite;
+}
+@keyframes gz-drift {
+  0%   { transform: translate(0, 0) rotate(0deg); opacity: 0.4; }
+  30%  { transform: translate(14px, -22px) rotate(80deg); opacity: 0.75; }
+  65%  { transform: translate(-9px, -14px) rotate(175deg); opacity: 0.55; }
+  100% { transform: translate(0, 0) rotate(360deg); opacity: 0.4; }
 }
 
-@keyframes pulse-slow {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.75;
-    transform: scale(1.05);
-  }
+/* ═══════════════════ HEADER ═══════════════════ */
+.gz-header {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.gz-header--solid {
+  background: rgba(252, 248, 242, 0.88);
+  backdrop-filter: blur(28px) saturate(1.4);
+  -webkit-backdrop-filter: blur(28px) saturate(1.4);
+  border-bottom: 1px solid rgba(200, 168, 110, 0.18);
+  box-shadow: 0 1px 0 rgba(200, 168, 110, 0.12), 0 6px 32px rgba(90, 50, 10, 0.07);
+}
+.gz-header__inner {
+  max-width: 1280px; margin: 0 auto;
+  padding: 0 48px; height: 76px;
+  display: flex; align-items: center; justify-content: space-between;
 }
 
-@keyframes pulse-border {
-  0%, 100% {
-    opacity: 0.3;
-  }
-  50% {
-    opacity: 0.6;
-  }
+/* Wordmark */
+.gz-wordmark { display: flex; align-items: center; gap: 14px; border: none; background: none; cursor: pointer; }
+.gz-wordmark__badge {
+  width: 44px; height: 44px; border-radius: 14px;
+  background: linear-gradient(145deg, #FEF3DC 0%, #FDE1A0 60%, #F9C868 100%);
+  border: 1.5px solid rgba(196, 148, 58, 0.3);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 14px rgba(148, 88, 10, 0.20), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.3s;
 }
-
-@keyframes sparkle {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1) rotate(0deg);
-  }
-  50% {
-    opacity: 0.6;
-    transform: scale(1.3) rotate(180deg);
-  }
+.gz-wordmark:hover .gz-wordmark__badge { transform: rotate(14deg); box-shadow: 0 8px 22px rgba(148, 88, 10, 0.28); }
+.gz-wordmark__clef { font-family: 'Cormorant Garamond', serif; font-size: 22px; color: #9A5C10; line-height: 1; }
+.gz-wordmark__text { display: flex; flex-direction: column; gap: 1px; }
+.gz-wordmark__name {
+  font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 700; line-height: 1;
+  color: var(--stone-800); letter-spacing: -0.01em;
+  transition: color 0.3s;
 }
+.gz-wordmark:hover .gz-wordmark__name { color: var(--amber-600); }
+.gz-wordmark__sub { font-size: 9px; text-transform: uppercase; letter-spacing: 0.42em; color: var(--stone-400); font-weight: 600; }
 
-@keyframes float {
-  0%, 100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-20px);
-  }
+/* Nav */
+.gz-nav { display: flex; align-items: center; gap: 8px; }
+.gz-nav__pill {
+  display: flex; align-items: center; gap: 6px;
+  padding: 9px 16px; border-radius: 12px; border: none; background: none; cursor: pointer;
+  font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--stone-600);
+  transition: background 0.22s, color 0.22s;
 }
+.gz-nav__pill:hover { background: rgba(248, 230, 185, 0.58); color: var(--amber-700); }
+.gz-nav__pill-icon { color: var(--amber-500); font-size: 13px; }
 
-.animate-shimmer {
-  animation: shimmer 3s infinite;
+/* Primary CTA button */
+.gz-btn-primary {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 11px 22px; border-radius: 14px; border: none; cursor: pointer;
+  background: linear-gradient(150deg, #C98238 0%, #A86018 55%, #8A4808 100%);
+  color: white; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600;
+  letter-spacing: 0.01em;
+  box-shadow: 0 4px 18px rgba(152, 88, 14, 0.34), 0 1px 0 rgba(255, 255, 255, 0.12) inset, 0 -1px 0 rgba(0,0,0,0.15) inset;
+  transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  position: relative; overflow: hidden;
 }
-
-.animate-shimmer-slow {
-  animation: shimmer-slow 8s infinite;
+.gz-btn-primary::after {
+  content: '';
+  position: absolute; top: 0; left: -100%; width: 40%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.16), transparent);
+  transition: left 0.55s;
 }
+.gz-btn-primary:hover::after { left: 160%; }
+.gz-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(152, 88, 14, 0.44), 0 1px 0 rgba(255, 255, 255, 0.16) inset; }
+.gz-btn-primary:active { transform: translateY(0); }
+.gz-btn-primary--lg { padding: 15px 42px; font-size: 15px; border-radius: 16px; }
+.gz-btn-primary__plus { font-size: 18px; line-height: 1; font-weight: 300; }
 
-.animate-pulse-slow {
-  animation: pulse-slow 3s ease-in-out infinite;
+/* Outline button */
+.gz-btn-outline {
+  padding: 14px 52px; border-radius: 16px;
+  border: 1.5px solid var(--stone-300);
+  background: rgba(253, 250, 244, 0.85); backdrop-filter: blur(10px);
+  font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600; color: var(--stone-600);
+  cursor: pointer; transition: all 0.25s;
 }
+.gz-btn-outline:hover { border-color: var(--amber-500); color: var(--amber-700); background: rgba(255, 244, 220, 0.9); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(152, 88, 14, 0.10); }
+.gz-btn-outline:disabled { opacity: 0.4; cursor: not-allowed; }
 
-.animate-sparkle {
-  animation: sparkle 2s ease-in-out infinite;
-}
+/* ═══════════════════ LAYOUT HELPERS ═══════════════════ */
+.gz-container { max-width: 1280px; margin: 0 auto; padding: 0 48px; }
+.gz-section { padding: 0 0 100px; }
+.gz-section--genres { padding: 0 0 108px; }
+.gz-section--collection { padding: 0 0 160px; }
 
-.animate-float {
-  animation: float 3s ease-in-out infinite;
-}
-
-.shadow-3xl {
-  box-shadow: 0 35px 60px -15px rgba(0, 0, 0, 0.15), 0 15px 30px -10px rgba(0, 0, 0, 0.1);
-}
-
-.perspective-1000 {
-  perspective: 1000px;
-}
-
-.preserve-3d {
-  transform-style: preserve-3d;
-}
-
-* {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-.group {
-  transition: transform 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.will-change-transform {
-  will-change: transform;
-}
-
-.group > div {
-  backface-visibility: hidden;
-  transform: translateZ(0);
-}
-
-/* Smooth scroll behavior */
-html {
-  scroll-behavior: smooth;
-}
-
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 10px;
-}
-
-::-webkit-scrollbar-track {
-  background: rgba(245, 240, 235, 0.5);
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(196, 149, 106, 0.3);
-  border-radius: 5px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(196, 149, 106, 0.5);
-}
-
-.line-clamp-3 {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
+/* ═══════════════════ HERO ═══════════════════ */
+.gz-hero {
+  position: relative;
+  padding: 168px 48px 100px;
+  max-width: 1280px; margin: 0 auto;
   overflow: hidden;
 }
 
-.line-clamp-4 {
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+/* Five-line stave */
+.gz-stave { position: absolute; inset: 0; pointer-events: none; }
+.gz-stave__line { position: absolute; left: 0; right: 0; height: 1px; background: rgba(162, 112, 38, 0.042); }
+
+.gz-hero__inner {
+  display: grid;
+  grid-template-columns: 1fr 330px;
+  gap: 80px; align-items: center;
 }
+@media (max-width: 1024px) { .gz-hero__inner { grid-template-columns: 1fr; } .gz-hero__photo-col { display: none; } }
+
+/* Eyebrow */
+.gz-eyebrow {
+  display: flex; align-items: center; gap: 14px; margin-bottom: 36px;
+}
+.gz-eyebrow__ornament { font-size: 24px; color: var(--amber-500); font-family: 'Cormorant Garamond', serif; line-height: 1; }
+.gz-eyebrow__rule { width: 44px; height: 1px; background: linear-gradient(90deg, var(--amber-400), var(--amber-200)); }
+.gz-eyebrow__label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.48em; color: rgba(168, 100, 28, 0.65); font-weight: 700; }
+
+/* Name heading */
+.gz-hero__name {
+  font-family: 'Cormorant Garamond', serif;
+  line-height: 1.02; letter-spacing: -0.035em;
+  margin-bottom: 0;
+}
+.gz-hero__name-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0 20px; }
+.gz-hero__firstname {
+  font-size: clamp(50px, 10vw, 130px); font-weight: 600; color: var(--stone-900);
+}
+.gz-hero__lastname {
+  font-size: clamp(50px, 10vw, 120px); font-weight: 600;
+  background: linear-gradient(135deg, #C98238 0%, #8A4808 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.gz-hero__role {
+  display: block; font-size: clamp(40px, 10vw, 100px); font-weight: 500;
+  color: var(--stone-600); letter-spacing: 0.01em; line-height: 1.3; margin-top: 6px;
+  font-style: italic;
+}
+
+/* Name inputs */
+.gz-name-input {
+  background: transparent; border: none; border-bottom: 2px solid transparent;
+  outline: none; font: inherit; color: inherit; letter-spacing: inherit;
+  transition: border-color 0.22s;
+}
+.gz-hero__name-row .gz-name-input {
+  font-size: clamp(40px, 10vw, 120px);
+  font-weight: 600;
+}
+.gz-name-input:hover { border-bottom-color: rgba(190, 120, 40, 0.4); }
+.gz-name-input:focus { border-bottom-color: var(--amber-500); }
+.gz-name-input--gold { background: linear-gradient(135deg, #C98238 0%, #8A4808 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.gz-name-input--role { color: var(--stone-400); font-style: italic; width: 100%; font-size: clamp(20px, 6vw, 120px); }
+
+/* Credential badges */
+.gz-badges { display: flex; flex-direction: column; gap: 12px; margin-top: 28px; }
+.gz-badge {
+  position: relative; overflow: hidden; border-radius: 20px;
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.4s;
+  cursor: default;
+}
+.gz-badge::before {
+  content: ''; position: absolute; inset: 0; border-radius: 20px;
+  padding: 1.5px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.55), rgba(255,255,255,0.08), rgba(255,255,255,0.32));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+}
+.gz-badge:hover { transform: translateY(-3px) scale(1.01); }
+
+.gz-badge--amber {
+  background: linear-gradient(140deg, #FEF5E0 0%, #FDEAC5 50%, #FBE0A2 100%);
+  box-shadow: 0 4px 18px rgba(192, 120, 50, 0.16), inset 0 1px 0 rgba(255,255,255,0.8);
+}
+.gz-badge--amber:hover { box-shadow: 0 14px 36px rgba(192, 120, 50, 0.26), inset 0 1px 0 rgba(255,255,255,0.88); }
+
+.gz-badge--violet {
+  background: linear-gradient(140deg, #F4EEFF 0%, #EADDFB 50%, #DCC8F5 100%);
+  box-shadow: 0 4px 18px rgba(120, 72, 162, 0.15), inset 0 1px 0 rgba(255,255,255,0.8);
+}
+.gz-badge--violet:hover { box-shadow: 0 14px 36px rgba(120, 72, 162, 0.24), inset 0 1px 0 rgba(255,255,255,0.88); }
+
+.gz-badge__shimmer {
+  position: absolute; top: 0; left: -100%; width: 44%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.32), transparent);
+  animation: gz-shimmer 3.5s ease-in-out infinite;
+}
+@keyframes gz-shimmer { 0%, 100% { left: -100%; } 50% { left: 150%; } }
+
+.gz-badge__body { position: relative; z-index: 1; display: flex; align-items: center; gap: 16px; padding: 18px 22px; }
+.gz-badge__icon {
+  width: 54px; height: 54px; border-radius: 15px; display: flex; align-items: center; justify-content: center;
+  font-family: 'Cormorant Garamond', serif; font-size: 24px; flex-shrink: 0;
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.gz-badge--amber .gz-badge__icon { background: linear-gradient(140deg, rgba(255,255,255,0.92), rgba(255,244,215,0.78)); box-shadow: 0 3px 10px rgba(192,120,50,0.18), inset 0 1px 0 rgba(255,255,255,0.95); }
+.gz-badge--violet .gz-badge__icon { background: linear-gradient(140deg, rgba(255,255,255,0.92), rgba(242,232,255,0.78)); box-shadow: 0 3px 10px rgba(120,72,162,0.18), inset 0 1px 0 rgba(255,255,255,0.95); }
+.gz-badge:hover .gz-badge__icon { transform: scale(1.1) rotate(-5deg); }
+
+.gz-badge__copy { flex: 1; min-width: 0; }
+.gz-badge__title { font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 700; line-height: 1.3; margin-bottom: 3px; }
+.gz-badge--amber .gz-badge__title { color: #7A4E18; }
+.gz-badge--violet .gz-badge__title { color: #4A2E78; }
+.gz-badge__subtitle { font-size: 12px; font-weight: 500; opacity: 0.68; }
+.gz-badge--amber .gz-badge__subtitle { color: #9A6530; }
+.gz-badge--violet .gz-badge__subtitle { color: #6A4A98; }
+
+/* Hero description */
+.gz-hero__desc-wrap { margin-top: 36px; padding-left: 20px; border-left: 3px solid rgba(196, 148, 58, 0.48); max-width: 580px; position: relative; }
+.gz-hero__desc-bar { display: none; }
+.gz-hero__desc { font-family: 'Cormorant Garamond', serif; font-size: 19px; color: var(--stone-500); line-height: 1.75; font-style: italic; }
+.gz-hero__desc-edit {
+  width: 100%; background: transparent; resize: none; outline: none; border: none;
+  font-family: 'Cormorant Garamond', serif; font-size: 19px; color: var(--stone-500);
+  line-height: 1.75; font-style: italic;
+}
+
+/* Stats */
+.gz-stats { display: flex; align-items: stretch; gap: 0; margin-top: 36px; width: fit-content; }
+.gz-stat {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 16px 24px; border-radius: 18px; min-width: 88px;
+  background: rgba(255, 255, 255, 0.52); border: 1.5px solid rgba(210, 182, 136, 0.36);
+  backdrop-filter: blur(12px); transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.gz-stat:hover { background: rgba(255, 252, 244, 0.9); transform: translateY(-4px); box-shadow: 0 12px 32px rgba(148, 88, 14, 0.12); }
+.gz-stat--cta { cursor: pointer; }
+.gz-stat__num { font-family: 'Cormorant Garamond', serif; font-size: 42px; font-weight: 700; color: var(--ink); line-height: 1; }
+.gz-stat__num--gold { color: var(--amber-600); }
+.gz-stat__lbl { font-size: 9px; text-transform: uppercase; letter-spacing: 0.3em; color: var(--stone-400); font-weight: 700; margin-top: 4px; }
+.gz-stat__div { width: 1px; align-self: stretch; margin: 0 4px; background: linear-gradient(180deg, transparent, rgba(200, 168, 110, 0.38), transparent); }
+
+/* Type pills */
+.gz-type-pills { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 32px; }
+.gz-type-pill {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 14px; border-radius: 100px;
+  background: var(--pill-bg); color: var(--pill-color);
+  border: 1px solid color-mix(in srgb, var(--pill-border) 25%, transparent);
+  font-size: 12px; font-weight: 600; letter-spacing: 0.01em;
+  transition: transform 0.22s, box-shadow 0.22s;
+}
+.gz-type-pill:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,0.10); }
+.gz-type-pill__icon { font-family: 'Cormorant Garamond', serif; font-size: 16px; }
+.gz-type-pill__name { font-family: 'DM Sans', sans-serif; font-weight: 600; }
+.gz-type-pill__count { font-weight: 700; opacity: 0.55; font-size: 11px; }
+
+/* ═══════════════════ PHOTO ═══════════════════ */
+.gz-hero__photo-col { display: flex; justify-content: center; }
+.gz-photo { position: relative; display: inline-block; }
+
+.gz-photo__halo {
+  position: absolute; inset: -30px; border-radius: 55px;
+  background: radial-gradient(ellipse, rgba(255, 205, 100, 0.46) 0%, rgba(240, 175, 82, 0.18) 52%, transparent 76%);
+  filter: blur(32px); opacity: 0.55; transition: opacity 0.45s; pointer-events: none;
+}
+.gz-photo__halo--bright { opacity: 0.95; }
+
+.gz-photo__ring {
+  position: absolute; inset: -8px; border-radius: 40px;
+  border: 1px solid rgba(196, 148, 58, 0.22);
+  background: linear-gradient(135deg, rgba(255,244,220,0.18) 0%, transparent 50%, rgba(255,220,140,0.12) 100%);
+  pointer-events: none;
+}
+
+.gz-photo__frame {
+  position: relative; width: 300px; height: 360px; border-radius: 32px; overflow: hidden;
+  background: linear-gradient(145deg, #FEF5E0 0%, #FDE6B0 100%);
+  box-shadow: 0 32px 80px rgba(80, 44, 0, 0.22), 0 10px 28px rgba(80, 44, 0, 0.12), inset 0 1px 0 rgba(255,255,255,0.5);
+  cursor: pointer; transition: box-shadow 0.45s;
+}
+.gz-photo__frame:hover { box-shadow: 0 40px 100px rgba(80, 44, 0, 0.28), 0 12px 36px rgba(80, 44, 0, 0.15); }
+
+.gz-photo__img { width: 100%; height: 100%; object-fit: cover; transition: transform 1s cubic-bezier(0.22, 1, 0.36, 1); }
+.gz-photo__img--hover { transform: scale(1.06); }
+.gz-photo__vignette { position: absolute; inset: 0; background: linear-gradient(to top, rgba(52, 24, 0, 0.18) 0%, transparent 55%); pointer-events: none; }
+
+.gz-photo__placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--stone-300); }
+.gz-photo__placeholder-clef { font-family: 'Cormorant Garamond', serif; font-size: 90px; line-height: 1; margin-bottom: 8px; }
+.gz-photo__placeholder-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.32em; font-weight: 600; }
+
+.gz-photo__corner { position: absolute; width: 22px; height: 22px; border-color: rgba(205, 158, 58, 0.55); border-style: solid; pointer-events: none; }
+.gz-photo__corner--tl { top: 12px; left: 12px; border-width: 2px 0 0 2px; border-radius: 6px 0 0 0; }
+.gz-photo__corner--tr { top: 12px; right: 12px; border-width: 2px 2px 0 0; border-radius: 0 6px 0 0; }
+.gz-photo__corner--bl { bottom: 12px; left: 12px; border-width: 0 0 2px 2px; border-radius: 0 0 0 6px; }
+.gz-photo__corner--br { bottom: 12px; right: 12px; border-width: 0 2px 2px 0; border-radius: 0 0 6px 0; }
+
+.gz-photo__overlay {
+  position: absolute; inset: 0; background: rgba(22, 8, 0, 0.46); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.38s;
+}
+.gz-photo__overlay--show { opacity: 1; }
+.gz-photo__upload-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255,255,255,0.28);
+  border-radius: 18px; padding: 18px 24px; color: white; font-size: 13px; font-weight: 600;
+  backdrop-filter: blur(8px);
+}
+
+.gz-photo__float {
+  position: absolute; font-family: 'Cormorant Garamond', serif; color: rgba(195, 148, 55, 0.44);
+  animation: gz-float 4.5s ease-in-out infinite;
+}
+.gz-photo__float--a { top: -20px; right: 10px; font-size: 28px; animation-delay: 0s; }
+.gz-photo__float--b { bottom: -16px; left: -12px; font-size: 34px; animation-delay: 1s; }
+.gz-photo__float--c { top: 42%; right: -22px; font-size: 22px; animation-delay: 1.8s; }
+@keyframes gz-float { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-14px) rotate(8deg); } }
+.gz-spin { display: inline-block; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ═══════════════════ SECTION HEADINGS ═══════════════════ */
+.gz-section-head { text-align: center; margin-bottom: 64px; }
+.gz-section-head__ornaments { display: flex; align-items: center; justify-content: center; gap: 18px; margin-bottom: 20px; }
+.gz-section-head__rule { width: 56px; height: 1px; }
+.gz-section-head__rule--left { background: linear-gradient(90deg, transparent, rgba(196, 148, 58, 0.55)); }
+.gz-section-head__rule--right { background: linear-gradient(270deg, transparent, rgba(196, 148, 58, 0.55)); }
+.gz-section-head__floret { font-size: 28px; color: var(--amber-500); font-family: 'Cormorant Garamond', serif; line-height: 1; }
+.gz-section-head__title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(34px, 5.5vw, 58px); font-weight: 700; line-height: 1.1;
+  letter-spacing: -0.02em; color: var(--stone-900); margin-bottom: 14px;
+}
+.gz-section-head__sub { font-family: 'DM Sans', sans-serif; font-size: 16px; color: var(--stone-400); line-height: 1.65; max-width: 540px; margin: 0 auto; }
+
+/* ═══════════════════ GENRES ═══════════════════ */
+.gz-genres {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 22px;
+}
+@media (min-width: 1024px) { .gz-genres { grid-template-columns: repeat(4, 1fr); } }
+
+.gz-genre {
+  position: relative; height: 390px; border-radius: 28px; overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.5s;
+  animation: gz-fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08);
+}
+@keyframes gz-fade-up { from { opacity: 0; transform: translateY(28px); } to { opacity: 1; transform: translateY(0); } }
+.gz-genre:hover { transform: translateY(-14px) scale(1.025); box-shadow: 0 28px 70px rgba(0,0,0,0.22), 0 8px 20px rgba(0,0,0,0.12); }
+
+.gz-genre__bg { position: absolute; inset: 0; transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1); }
+.gz-genre:hover .gz-genre__bg { transform: scale(1.09); }
+
+.gz-genre__symbols { position: absolute; inset: 0; opacity: 0.14; pointer-events: none; }
+.gz-genre__sym {
+  position: absolute; font-family: 'Cormorant Garamond', serif; font-size: 26px; color: white;
+  animation: gz-sym-float 6.5s ease-in-out infinite;
+}
+@keyframes gz-sym-float { 0%, 100% { transform: translate(0, 0) rotate(0deg); opacity: 0.25; } 50% { transform: translate(12px, -18px) rotate(18deg); opacity: 0.6; } }
+
+.gz-genre__body { position: relative; z-index: 2; height: 100%; padding: 28px; display: flex; flex-direction: column; }
+.gz-genre__top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 0; }
+
+.gz-genre__icon-wrap {
+  position: relative; width: 74px; height: 74px; border-radius: 20px;
+  background: rgba(255,255,255,0.94); backdrop-filter: blur(12px);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 8px 26px rgba(0,0,0,0.16), inset 0 1px 0 white;
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.5s;
+}
+.gz-genre:hover .gz-genre__icon-wrap { transform: scale(1.14) rotate(-9deg); box-shadow: 0 14px 40px rgba(0,0,0,0.24); }
+.gz-genre__icon-glow { position: absolute; inset: -10px; border-radius: 24px; background: var(--g-glow); filter: blur(14px); opacity: 0; transition: opacity 0.5s; }
+.gz-genre:hover .gz-genre__icon-glow { opacity: 1; }
+.gz-genre__icon { font-size: 36px; position: relative; z-index: 1; }
+
+.gz-genre__idx {
+  font-family: 'Cormorant Garamond', serif; font-size: 52px; font-weight: 700;
+  color: rgba(255,255,255,0.22); line-height: 1; transition: all 0.4s;
+}
+.gz-genre:hover .gz-genre__idx { color: rgba(255,255,255,0.38); transform: scale(1.08); }
+
+.gz-genre__info { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; }
+.gz-genre__name {
+  font-family: 'Cormorant Garamond', serif; font-size: 34px; font-weight: 700;
+  color: white; text-shadow: 0 3px 14px rgba(0,0,0,0.28); margin-bottom: 8px;
+  transition: transform 0.4s;
+}
+.gz-genre:hover .gz-genre__name { transform: translateX(4px); }
+.gz-genre__sub {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3em;
+  color: rgba(255,255,255,0.82); text-shadow: 0 1px 4px rgba(0,0,0,0.22); margin-bottom: 12px;
+}
+.gz-genre__desc {
+  font-size: 13px; line-height: 1.65; color: rgba(255,255,255,0.9);
+  text-shadow: 0 1px 6px rgba(0,0,0,0.22); opacity: 0; transform: translateY(10px);
+  transition: all 0.4s 0.1s;
+}
+.gz-genre:hover .gz-genre__desc { opacity: 1; transform: translateY(0); }
+
+.gz-genre__stave { position: absolute; bottom: 22px; left: 28px; right: 28px; display: flex; flex-direction: column; gap: 6px; opacity: 0.28; pointer-events: none; transition: opacity 0.4s; }
+.gz-genre:hover .gz-genre__stave { opacity: 0.52; }
+.gz-genre__stave-line { height: 1.5px; background: white; border-radius: 1px; }
+
+.gz-genre__arrow {
+  position: absolute; bottom: 28px; right: 28px;
+  font-family: 'Cormorant Garamond', serif; font-size: 30px; color: white;
+  opacity: 0; transform: translateX(-10px); transition: all 0.38s 0.15s;
+}
+.gz-genre:hover .gz-genre__arrow { opacity: 0.82; transform: translateX(0); }
+.gz-genre__bloom { position: absolute; inset: 0; background: radial-gradient(circle at center, var(--g-glow) 0%, transparent 68%); opacity: 0; transition: opacity 0.5s; pointer-events: none; }
+.gz-genre:hover .gz-genre__bloom { opacity: 0.38; }
+
+/* ═══════════════════ DIVIDER ═══════════════════ */
+.gz-divider { display: flex; align-items: center; gap: 16px; margin-bottom: 52px; }
+.gz-divider__ornament { font-size: 24px; color: var(--amber-500); font-family: 'Cormorant Garamond', serif; line-height: 1; flex-shrink: 0; }
+.gz-divider__line { height: 1px; flex: 1; background: linear-gradient(90deg, rgba(196, 148, 58, 0.35), transparent); }
+.gz-divider__label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.44em; color: var(--stone-400); font-weight: 700; flex-shrink: 0; }
+
+/* ═══════════════════ ARCHIVE GRID ═══════════════════ */
+.gz-archive-grid { display: grid; grid-template-columns: 5fr 7fr; gap: 26px; align-items: start; }
+@media (max-width: 1024px) { .gz-archive-grid { grid-template-columns: 1fr; } }
+
+/* Info panel */
+.gz-archive-info { }
+.gz-archive-info__inner {
+  border-radius: 28px; padding: 38px;
+  background: var(--card-bg);
+  border: 1.5px solid var(--card-border);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(18px);
+  display: flex; flex-direction: column; gap: 22px;
+}
+.gz-archive-info__header { display: flex; align-items: center; justify-content: space-between; }
+.gz-archive-info__label { display: flex; align-items: center; gap: 10px; }
+.gz-archive-info__clef { font-family: 'Cormorant Garamond', serif; font-size: 22px; color: var(--amber-500); line-height: 1; }
+.gz-archive-info__title-text { font-size: 10px; text-transform: uppercase; letter-spacing: 0.38em; color: var(--stone-400); font-weight: 700; }
+.gz-edit-btn {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700;
+  color: var(--amber-600); border: none; background: none; cursor: pointer; padding: 8px 14px; border-radius: 10px;
+  transition: background 0.2s, color 0.2s;
+}
+.gz-edit-btn:hover { background: rgba(248, 222, 168, 0.55); color: var(--amber-800); }
+
+.gz-archive-headline {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(20px, 2.4vw, 28px); font-weight: 600; line-height: 1.35;
+  color: var(--stone-900); letter-spacing: -0.01em;
+}
+.gz-archive-headline-edit {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(20px, 2.4vw, 28px); font-weight: 600; line-height: 1.35;
+  color: var(--stone-900); letter-spacing: -0.01em;
+  outline: none; border-radius: 8px; padding: 6px 10px; margin: -6px -10px;
+  white-space: pre-wrap; word-break: break-word; overflow: hidden;
+  transition: background 0.2s, box-shadow 0.2s; cursor: text;
+}
+.gz-archive-headline-edit:hover { background: rgba(255, 238, 200, 0.38); }
+.gz-archive-headline-edit:focus { background: rgba(255, 238, 200, 0.58); box-shadow: 0 0 0 2px rgba(196, 122, 58, 0.28); }
+
+.gz-archive-desc { font-family: 'DM Sans', sans-serif; font-size: 15px; color: var(--stone-500); line-height: 1.78; }
+.gz-archive-desc-edit {
+  font-family: 'DM Sans', sans-serif; font-size: 15px; color: var(--stone-500); line-height: 1.78;
+  outline: none; border-radius: 8px; padding: 6px 10px; margin: -6px -10px;
+  white-space: pre-wrap; word-break: break-word; overflow: hidden; cursor: text;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+.gz-archive-desc-edit:hover { background: rgba(255, 238, 200, 0.3); }
+.gz-archive-desc-edit:focus { background: rgba(255, 238, 200, 0.46); box-shadow: 0 0 0 2px rgba(196, 122, 58, 0.22); }
+
+.gz-archive-cta-row { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; padding-top: 6px; }
+.gz-archive-years { font-size: 10px; text-transform: uppercase; letter-spacing: 0.32em; color: var(--stone-400); font-weight: 700; }
+
+/* Mini stats */
+.gz-mini-stats {
+  display: flex; align-items: stretch;
+  border-top: 1px solid rgba(210, 185, 145, 0.3); padding-top: 22px; gap: 0;
+}
+.gz-mini-stat { flex: 1; text-align: center; padding: 14px 8px; }
+.gz-mini-stat__val { display: block; font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 700; color: var(--stone-800); line-height: 1; }
+.gz-mini-stat__lbl { display: block; font-size: 9px; text-transform: uppercase; letter-spacing: 0.28em; color: var(--stone-400); font-weight: 700; margin-top: 5px; }
+.gz-mini-stat--gold .gz-mini-stat__val { color: var(--amber-600); }
+.gz-mini-stat__sep { width: 1px; align-self: stretch; background: linear-gradient(180deg, transparent, rgba(200, 168, 110, 0.35), transparent); margin: 0 6px; }
+
+/* ═══════════════════ FEATURED ═══════════════════ */
+.gz-archive-right { display: flex; flex-direction: column; gap: 20px; }
+.gz-featured {
+  border-radius: 28px; padding: 32px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1.5px solid var(--card-border);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(12px);
+}
+.gz-featured__header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+.gz-featured__title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.36em; color: var(--stone-400); font-weight: 700; }
+.gz-featured__all { font-size: 10px; text-transform: uppercase; letter-spacing: 0.28em; color: var(--stone-300); font-weight: 700; cursor: pointer; transition: color 0.22s; }
+.gz-featured__all:hover { color: var(--amber-500); }
+
+.gz-featured__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.gz-feat-note {
+  padding: 18px; border-radius: 18px;
+  background: rgba(253, 251, 247, 0.85);
+  border: 1.5px solid rgba(210, 182, 136, 0.35);
+  text-align: left; cursor: pointer;
+  transition: all 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.gz-feat-note:hover { background: white; border-color: rgba(196, 122, 58, 0.45); transform: translateY(-4px); box-shadow: 0 14px 36px rgba(110, 66, 10, 0.13); }
+.gz-feat-note__type { display: flex; align-items: center; gap: 8px; }
+.gz-feat-note__icon {
+  width: 28px; height: 28px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Cormorant Garamond', serif; font-size: 14px; flex-shrink: 0;
+}
+.gz-feat-note__kind { font-size: 10px; text-transform: uppercase; letter-spacing: 0.2em; font-weight: 700; }
+.gz-feat-note__text {
+  font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--stone-500);
+  line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  transition: color 0.28s; flex: 1;
+}
+.gz-feat-note:hover .gz-feat-note__text { color: var(--stone-800); }
+.gz-feat-note__date { font-size: 10px; text-transform: uppercase; letter-spacing: 0.2em; color: var(--stone-300); font-weight: 600; }
+
+.gz-featured__empty {
+  display: flex; flex-direction: column; align-items: center; padding: 44px 24px;
+  border-radius: 16px; background: rgba(253, 249, 244, 0.62);
+  border: 1.5px dashed rgba(215, 188, 148, 0.5); text-align: center;
+}
+.gz-featured__empty-clef { font-family: 'Cormorant Garamond', serif; font-size: 36px; color: rgba(196, 148, 58, 0.45); line-height: 1; margin-bottom: 10px; }
+.gz-featured__empty p { font-size: 13px; color: var(--stone-400); }
+.gz-featured__empty-hint { margin-top: 4px; font-size: 11px; color: var(--stone-300) !important; }
+
+/* Select panel */
+.gz-select-panel { margin-top: 22px; padding-top: 22px; border-top: 1px solid rgba(210, 182, 136, 0.3); }
+.gz-select-panel__title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.36em; color: var(--stone-400); font-weight: 700; margin-bottom: 14px; }
+.gz-select-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  max-height: 210px; overflow-y: auto; padding-right: 4px;
+}
+.gz-select-grid::-webkit-scrollbar { width: 4px; }
+.gz-select-grid::-webkit-scrollbar-thumb { background: rgba(196, 122, 58, 0.26); border-radius: 2px; }
+.gz-select-item {
+  display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 12px;
+  background: rgba(253, 250, 245, 0.82); border: 1.5px solid rgba(210, 182, 136, 0.32);
+  cursor: pointer; transition: border-color 0.2s, background 0.2s;
+}
+.gz-select-item:hover { border-color: rgba(196, 122, 58, 0.44); background: rgba(255, 247, 232, 0.9); }
+.gz-select-item__check { accent-color: var(--amber-500); flex-shrink: 0; }
+.gz-select-item__text { font-size: 13px; color: var(--stone-500); display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* ═══════════════════ THOUGHTS ═══════════════════ */
+.gz-thoughts {
+  border-radius: 24px; padding: 28px 32px;
+  background: linear-gradient(135deg, rgba(255, 249, 236, 0.88) 0%, rgba(255, 255, 255, 0.68) 100%);
+  border: 1.5px solid rgba(210, 182, 136, 0.34);
+  box-shadow: 0 4px 22px rgba(110, 66, 10, 0.05);
+  backdrop-filter: blur(10px);
+}
+.gz-thoughts__header { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+.gz-thoughts__ornament { font-size: 20px; color: var(--amber-500); font-family: 'Cormorant Garamond', serif; line-height: 1; }
+.gz-thoughts__title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.38em; color: var(--stone-400); font-weight: 700; }
+.gz-thoughts__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.gz-thought {
+  padding: 16px 18px; border-radius: 16px; position: relative;
+  background: linear-gradient(135deg, rgba(255, 244, 218, 0.75) 0%, rgba(255, 251, 240, 0.52) 100%);
+  border: 1px solid rgba(210, 175, 110, 0.28);
+}
+.gz-thought__quote-mark {
+  font-family: 'Cormorant Garamond', serif; font-size: 52px; font-weight: 300;
+  color: rgba(196, 148, 58, 0.22); line-height: 1; position: absolute; top: 6px; left: 14px;
+}
+.gz-thought__text {
+  font-family: 'Cormorant Garamond', serif; font-size: 14px; font-style: italic;
+  color: var(--stone-500); line-height: 1.72; position: relative; z-index: 1; padding-top: 22px;
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
+}
+
+/* ═══════════════════ COLLECTION ═══════════════════ */
+.gz-collection-head { display: flex; align-items: center; margin-bottom: 52px; gap: 18px; }
+.gz-collection-head__eyebrow { font-size: 10px; text-transform: uppercase; letter-spacing: 0.44em; color: var(--stone-400); font-weight: 700; margin-bottom: 8px; }
+.gz-collection-head__accent-bar { height: 3px; width: 52px; border-radius: 100px; background: linear-gradient(90deg, var(--amber-500), var(--amber-300)); }
+.gz-collection-head__rule { height: 1px; flex: 1; background: linear-gradient(90deg, rgba(210, 182, 136, 0.55), transparent); }
+.gz-collection-head__count { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--stone-400); white-space: nowrap; }
+
+.gz-notes-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 20px; }
+
+/* Empty */
+.gz-empty { text-align: center; padding: 120px 24px; }
+.gz-empty__card {
+  display: inline-flex; flex-direction: column; align-items: center;
+  padding: 64px 88px; border-radius: 36px;
+  background: rgba(255, 255, 255, 0.74); backdrop-filter: blur(22px);
+  border: 1.5px solid var(--card-border); box-shadow: var(--shadow-lg);
+}
+.gz-empty__clef { font-family: 'Cormorant Garamond', serif; font-size: 88px; color: rgba(196, 148, 58, 0.4); line-height: 1; margin-bottom: 24px; display: block; }
+.gz-empty__title { font-family: 'Cormorant Garamond', serif; font-size: 34px; font-weight: 600; color: var(--stone-700); margin-bottom: 12px; }
+.gz-empty__body { font-size: 15px; color: var(--stone-400); line-height: 1.68; max-width: 340px; margin-bottom: 36px; }
+
+/* Loading */
+.gz-loading { text-align: center; padding: 120px 24px; display: flex; flex-direction: column; align-items: center; gap: 18px; }
+.gz-loading__ring { position: relative; width: 60px; height: 60px; }
+.gz-loading__ping { position: absolute; inset: 0; border-radius: 50%; border: 2px solid rgba(196, 148, 58, 0.25); animation: gz-ping 1.4s ease-out infinite; }
+.gz-loading__spin { position: absolute; inset: 0; border-radius: 50%; border: 2px solid transparent; border-top-color: var(--amber-600); border-right-color: rgba(196, 148, 58, 0.3); animation: gz-spin 0.9s linear infinite; }
+@keyframes gz-ping { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(1.6); opacity: 0; } }
+@keyframes gz-spin { to { transform: rotate(360deg); } }
+.gz-loading__label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.42em; color: var(--stone-400); font-weight: 700; }
+
+/* Load more */
+.gz-load-more { text-align: center; margin-top: 64px; }
+
+/* ═══════════════════ INLINE EDIT ═══════════════════ */
+.gz-inline-edit {
+  background: transparent; outline: none; border: none;
+  border-bottom: 1.5px solid transparent; font: inherit; color: inherit;
+  transition: border-color 0.22s;
+}
+.gz-inline-edit:hover { border-bottom-color: rgba(196, 148, 58, 0.4); }
+.gz-inline-edit:focus { border-bottom-color: var(--amber-500); }
+.gz-inline-edit--label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.38em; color: var(--stone-400); font-weight: 700; }
+.gz-inline-edit--cta { color: white; width: 128px; font-size: 13px; font-weight: 600; }
+.gz-inline-edit--footer-year { width: 40px; text-align: center; }
+
+/* ═══════════════════ FOOTER ═══════════════════ */
+.gz-footer {
+  border-top: 1px solid rgba(210, 182, 136, 0.28);
+  padding: 52px 48px;
+  background: linear-gradient(180deg, transparent 0%, rgba(242, 228, 198, 0.22) 100%);
+}
+.gz-footer__inner {
+  max-width: 1280px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between; gap: 32px;
+  flex-wrap: wrap;
+}
+.gz-footer__brand { display: flex; align-items: center; gap: 18px; }
+.gz-footer__clef { font-family: 'Cormorant Garamond', serif; font-size: 46px; color: var(--amber-500); line-height: 1; }
+.gz-footer__name { font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 700; color: var(--stone-800); line-height: 1; }
+.gz-footer__years { font-size: 9px; text-transform: uppercase; letter-spacing: 0.4em; color: var(--stone-400); font-weight: 700; display: flex; align-items: center; gap: 4px; margin-top: 4px; }
+.gz-footer__quote {
+  font-family: 'Cormorant Garamond', serif; font-size: 18px; font-style: italic;
+  color: var(--stone-400); line-height: 1.65; text-align: right; max-width: 440px;
+}
+.gz-footer__quote--edit {
+  font-family: 'Cormorant Garamond', serif; font-size: 18px; font-style: italic;
+  color: var(--stone-400); line-height: 1.65; text-align: right; max-width: 440px;
+  outline: none; border-radius: 8px; padding: 4px 8px; margin: -4px -8px;
+  transition: background 0.2s;
+}
+.gz-footer__quote--edit:hover { background: rgba(255, 238, 200, 0.3); }
+.gz-footer__quote--edit:focus { background: rgba(255, 238, 200, 0.5); }
+
+/* ═══════════════════ SCROLLBAR ═══════════════════ */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: rgba(242, 228, 200, 0.45); }
+::-webkit-scrollbar-thumb { background: rgba(196, 122, 58, 0.24); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(196, 122, 58, 0.45); }
 </style>

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { getAssetPath } from '../../api/notes';
 
-defineProps<{
+const props = defineProps<{
   modelValue: string;
   filePath?: string;
   audioPath?: string;
@@ -24,7 +25,7 @@ const previewUrl = ref<string>('');
 const isImageFile = ref(false);
 
 onUnmounted(() => {
-  if (previewUrl.value) {
+  if (previewUrl.value && previewUrl.value.startsWith('blob:')) {
     URL.revokeObjectURL(previewUrl.value);
   }
 });
@@ -89,7 +90,7 @@ async function processFile(file: File) {
   fileName.value = file.name;
   isImageFile.value = isImage;
 
-  if (previewUrl.value) {
+  if (previewUrl.value && previewUrl.value.startsWith('blob:')) {
     URL.revokeObjectURL(previewUrl.value);
   }
 
@@ -121,7 +122,7 @@ async function processAudio(file: File) {
 
 function clearFile() {
   fileName.value = '';
-  if (previewUrl.value) {
+  if (previewUrl.value && previewUrl.value.startsWith('blob:')) {
     URL.revokeObjectURL(previewUrl.value);
   }
   previewUrl.value = '';
@@ -145,13 +146,23 @@ function handleKeydown(event: KeyboardEvent) {
     emit('save');
   }
 }
-</script>
 
 watch(
   () => [props.filePath, props.audioPath],
-  ([newFilePath, newAudioPath]) => {
+  async ([newFilePath, newAudioPath]) => {
     if (newFilePath && !fileName.value) {
       fileName.value = newFilePath;
+      // If it's an existing file path (UUID or URL), try to load preview
+      if (!newFilePath.startsWith('blob:') && (newFilePath.endsWith('.png') || newFilePath.endsWith('.jpg') || newFilePath.endsWith('.jpeg') || !newFilePath.includes('.'))) {
+          // Assume it might be an image ID or path
+          try {
+             const url = await getAssetPath(newFilePath);
+             previewUrl.value = url;
+             isImageFile.value = true;
+          } catch (e) {
+             console.error("Failed to load preview", e);
+          }
+      }
     }
     if (newAudioPath && !audioFileName.value) {
       audioFileName.value = newAudioPath;
@@ -159,6 +170,7 @@ watch(
   },
   { immediate: true }
 );
+</script>
 
 <template>
   <div class="w-full space-y-8">
